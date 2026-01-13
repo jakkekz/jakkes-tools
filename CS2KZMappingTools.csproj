@@ -4,14 +4,14 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon>icons\hammerkz.ico</ApplicationIcon>
+    <ApplicationIcon>icons\icon.ico</ApplicationIcon>
     <AssemblyName>CS2KZMappingTools</AssemblyName>
     <RootNamespace>CS2KZMappingTools</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Version>1.0.0</Version>
     <Authors>jakkekz</Authors>
-    <Product>CS2KZ Mapping Tools</Product>
+    <Product>jakke's tools</Product>
     <Copyright>Copyright © 2025</Copyright>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     

@@ -123,7 +123,7 @@ namespace CS2KZMappingTools
         private bool _linksButtonHover;
         private bool _aboutButtonHover;
         
-        private const int TitleBarHeight = 30;
+        private const int TitleBarHeight = 45;
         private const int MenuBarHeight = 28;
         private const int ButtonWidth = 100;
         private const int ButtonHeight = 100;
@@ -153,7 +153,7 @@ namespace CS2KZMappingTools
             this.StartPosition = FormStartPosition.Manual;
             this.DoubleBuffered = true;
             this.Font = new Font("Roboto", 15F, FontStyle.Regular);
-            this.Text = "CS2KZ Mapping Tools";
+            this.Text = "jakke's tools";
             this.AllowDrop = true;
             
             // Set theme
@@ -276,7 +276,7 @@ namespace CS2KZMappingTools
                 ["loading_screen"] = "loading.ico",
                 ["point_worldtext"] = "text.ico",
                 ["sounds"] = "sounds.ico",
-                ["title_icon"] = "hammerkz.ico",
+                ["title_icon"] = "icon.ico",
                 ["update_available"] = "update.ico",
                 ["update_not_available"] = "updatenot.ico"
             };
@@ -770,10 +770,10 @@ namespace CS2KZMappingTools
             // Apply scale to all dimensions
             int scaledTitleBarHeight = (int)(TitleBarHeight * _settings.Scale);
             int scaledMenuBarHeight = (int)(MenuBarHeight * _settings.Scale);
-            float scaledFontSize = 9F * _settings.Scale;
-            int scaledIconSize = (int)(16 * _settings.Scale);
+            float scaledFontSize = 11F * _settings.Scale;
+            int scaledIconSize = (int)(20 * _settings.Scale);
             int scaledIconX = (int)(8 * _settings.Scale);
-            int scaledIconSpacing = (int)(20 * _settings.Scale);
+            int scaledIconSpacing = (int)(30 * _settings.Scale);
             
             // Draw title bar background
             using (var brush = new SolidBrush(theme.TitleBarBackground))
@@ -798,16 +798,16 @@ namespace CS2KZMappingTools
             // Only draw title text when using 2+ columns
             if (_settings.GridColumns >= 2)
             {
-                string titleText = _settings.GridColumns == 2 ? "CS2KZ MTools" : "CS2KZ Mapping Tools";
+                string titleText = _settings.GridColumns == 2 ? "jakke's tools" : "jakke's tools";
                 using (var brush = new SolidBrush(theme.Text))
                 using (var font = new Font("Roboto", scaledFontSize))
                 {
-                    g.DrawString(titleText, font, brush, iconX, (scaledTitleBarHeight - (int)(15 * _settings.Scale)) / 2);
+                    g.DrawString(titleText, font, brush, iconX, (scaledTitleBarHeight - (int)(17 * _settings.Scale)) / 2);
                 }
             }
             
             // Calculate button positions in title bar: Settings, Update, Minimize, Close
-            int buttonSize = (int)(25 * _settings.Scale);
+            int buttonSize = (int)(30 * _settings.Scale);
             int buttonY = (scaledTitleBarHeight - buttonSize) / 2;
             int buttonSpacing1 = (int)(15 * _settings.Scale);
             int buttonSpacing2 = (int)(10 * _settings.Scale);
@@ -1094,11 +1094,7 @@ namespace CS2KZMappingTools
             _aboutButtonHover = _aboutButtonRect.Contains(e.Location);
             
             // Show tooltips for title bar buttons
-            if (_closeButtonHover)
-                _toolTip.Show("Close", this, e.X, e.Y - 25, 2000);
-            else if (_minimizeButtonHover)
-                _toolTip.Show("Minimize", this, e.X, e.Y - 25, 2000);
-            else if (_updateButtonHover)
+            if (_updateButtonHover)
                 _toolTip.Show("Check for updates", this, e.X, e.Y - 25, 2000);
             else if (_settingsButtonHover && e.Y < TitleBarHeight)
                 _toolTip.Show("Settings", this, e.X, e.Y - 25, 2000);

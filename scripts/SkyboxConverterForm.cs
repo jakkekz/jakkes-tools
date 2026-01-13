@@ -598,11 +598,11 @@ namespace CS2KZMappingTools
                                 _addonComboBox.Items.AddRange(_addonList);
                                 if (_addonList.Length > 0)
                                 {
-                                    _addonComboBox.SelectedIndex = 0;
-                                }
-                            }));
+                                        _addonComboBox.SelectedIndex = 0;
+                                    }
+                                }));
+                            }
                         }
-                    }
                 }
             }
             catch (Exception ex)
