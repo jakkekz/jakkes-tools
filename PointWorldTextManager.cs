@@ -27,10 +27,9 @@ namespace CS2KZMappingTools
             }
             else
             {
-                // Use the chars folder in the project root (4 levels up from bin directory)
+                // Use the chars folder in the executable directory
                 var exeDir = AppDomain.CurrentDomain.BaseDirectory;
-                var projectRoot = Path.GetFullPath(Path.Combine(exeDir, "..", "..", "..", ".."));
-                charsFolder = Path.Combine(projectRoot, "chars");
+                charsFolder = Path.Combine(exeDir, "chars");
                 Log($"Using chars folder path: {charsFolder}");
             }
             

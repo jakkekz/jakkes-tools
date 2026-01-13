@@ -41,7 +41,10 @@
     <EmbeddedResource Include="scripts\**\*" />
     <EmbeddedResource Include="utils\**\*" />
     <EmbeddedResource Include="fonts\**\*" />
-    <EmbeddedResource Include="chars\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="chars\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

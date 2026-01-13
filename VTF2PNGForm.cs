@@ -64,6 +64,15 @@ namespace CS2KZMappingTools
                 SelectionMode = SelectionMode.MultiSimple
             };
 
+            // Output Path Label
+            var outputLabel = new Label
+            {
+                Text = "Choose output directory for PNG files:",
+                Location = new Point(20, 210),
+                Size = new Size(300, 20),
+                AutoSize = false
+            };
+
             // Output Path TextBox
             _outputPathTextBox = new TextBox
             {
@@ -105,7 +114,7 @@ namespace CS2KZMappingTools
 
             this.Controls.AddRange(new Control[] {
                 _selectFilesButton, _filesListBox,
-                _outputPathTextBox, _selectOutputButton, _convertButton,
+                outputLabel, _outputPathTextBox, _selectOutputButton, _convertButton,
                 _progressBar
             });
         }
