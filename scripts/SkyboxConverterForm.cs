@@ -10,6 +10,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using ImageMagick;
+using Microsoft.Win32;
 
 #nullable enable
 
@@ -615,60 +616,41 @@ namespace CS2KZMappingTools
         {
             try
             {
-                // Try Steam registry
-                var steamKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SOFTWARE\WOW6432Node\Valve\Steam");
-                if (steamKey != null)
+                // Get Steam path from registry
+                using var key = Registry.CurrentUser.OpenSubKey(@"Software\Valve\Steam");
+                if (key?.GetValue("SteamPath") is string steamPath)
                 {
-                    var steamPath = steamKey.GetValue("InstallPath") as string;
-                    if (!string.IsNullOrEmpty(steamPath))
+                    // Try both casings for libraryfolders.vdf
+                    var libraryFoldersPath = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
+                    if (!File.Exists(libraryFoldersPath))
                     {
-                        // Try both casings for libraryfolders.vdf
-                        var libraryFolders = Path.Combine(steamPath, "steamapps", "libraryfolders.vdf");
-                        if (!File.Exists(libraryFolders))
+                        libraryFoldersPath = Path.Combine(steamPath, "SteamApps", "libraryfolders.vdf");
+                    }
+                    
+                    var libraryPath = FindCs2LibraryPath(libraryFoldersPath);
+
+                    if (!string.IsNullOrEmpty(libraryPath))
+                    {
+                        // Try both casings for appmanifest
+                        var appManifestPath = Path.Combine(libraryPath, "steamapps", "appmanifest_730.acf");
+                        if (!File.Exists(appManifestPath))
                         {
-                            libraryFolders = Path.Combine(steamPath, "SteamApps", "libraryfolders.vdf");
+                            appManifestPath = Path.Combine(libraryPath, "SteamApps", "appmanifest_730.acf");
                         }
                         
-                        if (File.Exists(libraryFolders))
+                        if (File.Exists(appManifestPath))
                         {
-                            // Check default Steam location first
-                            var defaultCs2Path = Path.Combine(steamPath, "steamapps", "common", "Counter-Strike Global Offensive");
-                            if (!Directory.Exists(defaultCs2Path))
+                            // Parse the VDF file to get install directory
+                            var installDir = ParseAppManifest(appManifestPath);
+                            if (!string.IsNullOrEmpty(installDir))
                             {
-                                defaultCs2Path = Path.Combine(steamPath, "SteamApps", "common", "Counter-Strike Global Offensive");
-                            }
-                            if (Directory.Exists(defaultCs2Path))
-                            {
-                                return defaultCs2Path;
-                            }
-
-                            // Check all library paths
-                            var content = File.ReadAllText(libraryFolders);
-                            var lines = content.Split('\n');
-                            
-                            foreach (var line in lines)
-                            {
-                                var trimmed = line.Trim();
-                                if (trimmed.Contains("\"path\""))
+                                // Try both casings for common folder
+                                var cs2Path = Path.Combine(libraryPath, "steamapps", "common", installDir);
+                                if (!Directory.Exists(cs2Path))
                                 {
-                                    var match = System.Text.RegularExpressions.Regex.Match(trimmed, "\"path\"\\s+\"([^\"]+)\"");
-                                    if (match.Success)
-                                    {
-                                        var libraryPath = match.Groups[1].Value.Replace("\\\\", "\\");
-                                        
-                                        // Try both casings
-                                        var cs2Path = Path.Combine(libraryPath, "steamapps", "common", "Counter-Strike Global Offensive");
-                                        if (!Directory.Exists(cs2Path))
-                                        {
-                                            cs2Path = Path.Combine(libraryPath, "SteamApps", "common", "Counter-Strike Global Offensive");
-                                        }
-                                        
-                                        if (Directory.Exists(cs2Path))
-                                        {
-                                            return cs2Path;
-                                        }
-                                    }
+                                    cs2Path = Path.Combine(libraryPath.Replace("steamapps", "SteamApps"), installDir);
                                 }
+                                return cs2Path;
                             }
                         }
                     }
@@ -676,6 +658,73 @@ namespace CS2KZMappingTools
             }
             catch { }
 
+            return null;
+        }
+
+        private string? FindCs2LibraryPath(string libraryFoldersPath)
+        {
+            if (!File.Exists(libraryFoldersPath)) return null;
+
+            try
+            {
+                // Check default Steam location first
+                var steamPath = Path.GetDirectoryName(Path.GetDirectoryName(libraryFoldersPath));
+                if (!string.IsNullOrEmpty(steamPath))
+                {
+                    var defaultManifest = Path.Combine(steamPath, "steamapps", "appmanifest_730.acf");
+                    if (!File.Exists(defaultManifest))
+                    {
+                        defaultManifest = Path.Combine(steamPath, "SteamApps", "appmanifest_730.acf");
+                    }
+                    if (File.Exists(defaultManifest))
+                    {
+                        return steamPath;
+                    }
+                }
+                
+                // Check all library folders
+                var content = File.ReadAllText(libraryFoldersPath);
+                var lines = content.Split('\n');
+                
+                foreach (var line in lines)
+                {
+                    var trimmed = line.Trim();
+                    if (trimmed.Contains("\"path\""))
+                    {
+                        var match = System.Text.RegularExpressions.Regex.Match(trimmed, "\"path\"\\s+\"([^\"]+)\"");
+                        if (match.Success)
+                        {
+                            var libraryPath = match.Groups[1].Value.Replace("\\\\", "\\");
+                            
+                            // Check if this library has CS2
+                            var manifestPath = Path.Combine(libraryPath, "steamapps", "appmanifest_730.acf");
+                            if (!File.Exists(manifestPath))
+                            {
+                                manifestPath = Path.Combine(libraryPath, "SteamApps", "appmanifest_730.acf");
+                            }
+                            
+                            if (File.Exists(manifestPath))
+                            {
+                                return libraryPath;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return null;
+        }
+
+        private string? ParseAppManifest(string appManifestPath)
+        {
+            try
+            {
+                var content = File.ReadAllText(appManifestPath);
+                var match = System.Text.RegularExpressions.Regex.Match(content, "\"installdir\"\\s+\"([^\"]+)\"");
+                return match.Success ? match.Groups[1].Value : null;
+            }
+            catch { }
             return null;
         }
 
