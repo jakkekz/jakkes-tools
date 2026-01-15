@@ -123,7 +123,7 @@ namespace CS2KZMappingTools
         private bool _linksButtonHover;
         private bool _aboutButtonHover;
         
-        private const int TitleBarHeight = 45;
+        private const int TitleBarHeight = 32;
         private const int MenuBarHeight = 28;
         private const int ButtonWidth = 100;
         private const int ButtonHeight = 100;
@@ -771,7 +771,7 @@ namespace CS2KZMappingTools
             int scaledTitleBarHeight = (int)(TitleBarHeight * _settings.Scale);
             int scaledMenuBarHeight = (int)(MenuBarHeight * _settings.Scale);
             float scaledFontSize = 11F * _settings.Scale;
-            int scaledIconSize = (int)(20 * _settings.Scale);
+            int scaledIconSize = (int)(23 * _settings.Scale);
             int scaledIconX = (int)(8 * _settings.Scale);
             int scaledIconSpacing = (int)(30 * _settings.Scale);
             
@@ -2109,7 +2109,7 @@ namespace CS2KZMappingTools
                         break;
                     
                     case "sounds":
-                        LaunchScript("sounds.py");
+                        ShowSoundsManagerForm();
                         break;
                         
                     case "fix_cs2":
@@ -2789,6 +2789,21 @@ if __name__ == '__main__':
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening VTF to PNG Converter: {ex.Message}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ShowSoundsManagerForm()
+        {
+            try
+            {
+                var soundsManagerForm = new SoundsManagerForm(_themeManager);
+                soundsManagerForm.LogMessage += OnLogMessage;
+                soundsManagerForm.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening Sounds Manager: {ex.Message}", 
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

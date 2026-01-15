@@ -34,9 +34,6 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     
-    - name: Publish Single-File Executable
-      run: dotnet publish -c Release --no-restore
-    
     - name: Get version info
       id: version
       run: |
@@ -48,11 +45,28 @@ jobs:
         echo "tag=$tag" >> $env:GITHUB_OUTPUT
         echo "sha=$shortSha" >> $env:GITHUB_OUTPUT
     
-    - name: Upload Build Artifact
+    - name: Publish Self-Contained (with .NET Runtime)
+      run: dotnet publish -c Release -p:PublishSingleFile=true -p:SelfContained=true -p:RuntimeIdentifier=win-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true --no-restore -o publish/self-contained
+    
+    - name: Publish Framework-Dependent (requires .NET 8)
+      run: dotnet publish -c Release -p:PublishSingleFile=true -p:SelfContained=false -p:RuntimeIdentifier=win-x64 --no-restore -o publish/framework-dependent
+    
+    - name: Rename Artifacts
+      run: |
+        Rename-Item -Path "publish/self-contained/CS2KZMappingTools.exe" -NewName "jakke's tools.exe"
+        Rename-Item -Path "publish/framework-dependent/CS2KZMappingTools.exe" -NewName "jakke's tools-Lite.exe"
+    
+    - name: Upload Self-Contained Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: CS2KZ-Mapping-Tools-Portable
-        path: bin/Release/net8.0-windows/win-x64/publish/CS2KZMappingTools.exe
+        name: jakkes-tools
+        path: publish/self-contained/jakke's tools.exe
+    
+    - name: Upload Framework-Dependent Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: jakkes-tools-lite
+        path: publish/framework-dependent/jakke's tools-Lite.exe
     
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -66,9 +80,18 @@ jobs:
           ## Changes
           ${{ github.event.head_commit.message }}
           
-          ## Download
-          Download the single-file executable below - no installation required!
-        files: bin/Release/net8.0-windows/win-x64/publish/CS2KZMappingTools.exe
+          ## Downloads
+          
+          **jakke's tools.exe (Recommended for most users)** - ~100MB
+          - Includes .NET Runtime embedded - no installation required
+          - Just download and run!
+          
+          **jakke's tools-Lite.exe (Smaller download)** - ~5MB
+          - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
+          - For users who already have .NET 8 installed
+        files: |
+          publish/self-contained/jakke's tools.exe
+          publish/framework-dependent/jakke's tools-Lite.exe
         draft: false
         prerelease: false
       env:

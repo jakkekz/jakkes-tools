@@ -9,4 +9,4 @@ WORK IN PROGRESS
 - **Loading Screen**, fast and easy loading screen things
 - **Point Worldtext**, make csgo style point_worldtext in cs2
 - **VTF to PNG**
-- **Sounds**, add sounds easier (kinda janky rn, works sometimes)
+- **Sounds**, add sounds easier WORK IN PROGRESS!
