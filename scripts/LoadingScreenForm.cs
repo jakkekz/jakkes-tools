@@ -35,6 +35,7 @@ namespace CS2KZMappingTools
         private Label? _imagesStatusLabel;
         private Label? _iconStatusLabel;
         private Label? _descriptionStatusLabel;
+        private ToolTip? _toolTip;
 
         private List<string> _imageFiles = new List<string>();
         private string _iconFile = "";
@@ -90,7 +91,11 @@ namespace CS2KZMappingTools
             }
             else if (control is Label label)
             {
-                label.ForeColor = theme.Text;
+                // Preserve blue color for clickable links
+                if (label.ForeColor != Color.DodgerBlue && label.ForeColor != Color.Gray)
+                {
+                    label.ForeColor = theme.Text;
+                }
             }
             else if (control is RichTextBox richTextBox)
             {
@@ -164,20 +169,39 @@ namespace CS2KZMappingTools
                 Font = new Font("Segoe UI", 9F)
             };
 
+            // Initialize tooltip
+            _toolTip = new ToolTip();
+            _toolTip.AutoPopDelay = 32767; // Keep tooltip visible until mouse moves away
+
             // Loading Screen Images
             var imagesLabel = new Label
             {
                 Text = "Loading Screen Images:",
                 Location = new Point(0, 120),
-                Size = new Size(140, 20),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold | FontStyle.Underline),
+                Cursor = Cursors.Hand,
+                ForeColor = Color.DodgerBlue
             };
+            imagesLabel.Click += (s, e) => Process.Start(new ProcessStartInfo("https://imgur.com/a/XqXcL6j") { UseShellExecute = true });
+            _toolTip.SetToolTip(imagesLabel, "Open example");
+
+            var imagesHelpLabel = new Label
+            {
+                Text = "?",
+                Location = new Point(138, 120),
+                Size = new Size(15, 20),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Help,
+                ForeColor = Color.Gray
+            };
+            _toolTip.SetToolTip(imagesHelpLabel, "Select between 1 and 9 images of your map.\nThese will be displayed during the loading screen.");
 
             _selectImagesButton = new Button
             {
                 Text = "Select Images (1-9)...",
-                Location = new Point(150, 115),
-                Size = new Size(120, 30),
+                Location = new Point(170, 115),
+                Size = new Size(135, 30),
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9F)
             };
@@ -202,8 +226,8 @@ namespace CS2KZMappingTools
             _imagesPathLabel = new Label
             {
                 Text = "No file selected",
-                Location = new Point(280, 120),
-                Size = new Size(210, 20),
+                Location = new Point(315, 120),
+                Size = new Size(175, 20),
                 Font = new Font("Segoe UI", 8F)
             };
 
@@ -212,15 +236,30 @@ namespace CS2KZMappingTools
             {
                 Text = "Map Icon (SVG):",
                 Location = new Point(0, 155),
-                Size = new Size(140, 20),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold | FontStyle.Underline),
+                Cursor = Cursors.Hand,
+                ForeColor = Color.DodgerBlue
             };
+            iconLabel.Click += (s, e) => Process.Start(new ProcessStartInfo("https://imgur.com/a/Z3v8dG4") { UseShellExecute = true });
+            _toolTip.SetToolTip(iconLabel, "Open example");
+
+            var iconHelpLabel = new Label
+            {
+                Text = "?",
+                Location = new Point(98, 155),
+                Size = new Size(15, 20),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Help,
+                ForeColor = Color.Gray
+            };
+            _toolTip.SetToolTip(iconHelpLabel, "Select a square SVG icon (1:1 aspect ratio).\nFor example: 400x400 or 1000x1000\n\nYou can use pngtosvg.com to convert PNG images to SVG.");
 
             _selectIconButton = new Button
             {
                 Text = "Browse File...",
-                Location = new Point(150, 150),
-                Size = new Size(120, 30),
+                Location = new Point(170, 150),
+                Size = new Size(135, 30),
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9F)
             };
@@ -245,8 +284,8 @@ namespace CS2KZMappingTools
             _iconPathLabel = new Label
             {
                 Text = "No file selected",
-                Location = new Point(280, 155),
-                Size = new Size(210, 20),
+                Location = new Point(315, 155),
+                Size = new Size(175, 20),
                 Font = new Font("Segoe UI", 8F)
             };
 
@@ -255,9 +294,24 @@ namespace CS2KZMappingTools
             {
                 Text = "Map Description:",
                 Location = new Point(0, 190),
-                Size = new Size(140, 20),
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold | FontStyle.Underline),
+                Cursor = Cursors.Hand,
+                ForeColor = Color.DodgerBlue
             };
+            descriptionLabel.Click += (s, e) => Process.Start(new ProcessStartInfo("https://imgur.com/a/XNSxleb") { UseShellExecute = true });
+            _toolTip.SetToolTip(descriptionLabel, "Open example");
+
+            var descriptionHelpLabel = new Label
+            {
+                Text = "?",
+                Location = new Point(103, 190),
+                Size = new Size(15, 20),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Cursor = Cursors.Help,
+                ForeColor = Color.Gray
+            };
+            _toolTip.SetToolTip(descriptionHelpLabel, "Write your map description here.\nNote: The \"Loading...\" text at the top cannot be removed.");
 
             _descriptionTextBox = new TextBox
             {
@@ -358,9 +412,9 @@ namespace CS2KZMappingTools
                 titleLabel,
                 addonLabel, _addonNameComboBox,
                 mapLabel, _mapNameComboBox,
-                imagesLabel, _selectImagesButton, _clearImagesButton, _imagesPathLabel,
-                iconLabel, _selectIconButton, _clearIconButton, _iconPathLabel,
-                descriptionLabel, _descriptionTextBox,
+                imagesLabel, imagesHelpLabel, _selectImagesButton, _clearImagesButton, _imagesPathLabel,
+                iconLabel, iconHelpLabel, _selectIconButton, _clearIconButton, _iconPathLabel,
+                descriptionLabel, descriptionHelpLabel, _descriptionTextBox,
                 _progressBar, _statusLabel, _helpLabel,
                 _imagesStatusLabel, _iconStatusLabel, _descriptionStatusLabel,
                 _createButton, _closeButton
