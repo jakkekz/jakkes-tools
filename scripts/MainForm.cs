@@ -2445,6 +2445,9 @@ namespace CS2KZMappingTools
                     _settings.AutoUpdateCS2KZ);
                     
                 OnLogMessage("Listen server process completed!");
+                
+                // Re-check status after launch to update indicators (don't check remote, just local)
+                await CheckMetamodUpdatesAsync(checkRemote: false);
             }
             catch (Exception ex)
             {
@@ -2485,6 +2488,9 @@ namespace CS2KZMappingTools
                 await _dedicatedManager.RunDedicatedServerProcessAsync();
                     
                 OnLogMessage("Dedicated server process completed!");
+                
+                // Re-check status after launch to update indicators (don't check remote, just local)
+                await CheckMetamodUpdatesAsync(checkRemote: false);
             }
             catch (Exception ex)
             {
@@ -2513,6 +2519,9 @@ namespace CS2KZMappingTools
                 await _insecureManager.RunInsecureModeAsync();
                     
                 OnLogMessage("Insecure mode session completed!");
+                
+                // Re-check status after launch to update indicators (don't check remote, just local)
+                await CheckMetamodUpdatesAsync(checkRemote: false);
             }
             catch (Exception ex)
             {

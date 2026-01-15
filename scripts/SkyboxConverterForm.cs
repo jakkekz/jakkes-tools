@@ -30,6 +30,7 @@ namespace CS2KZMappingTools
         private CheckBox? _createSkyboxVmatCheckBox;
         private CheckBox? _createMoondomeVmatCheckBox;
         private ProgressBar? _progressBar;
+        private Label? _statusLabel;
 
         // Preview Controls
         private PictureBox[]? _facePictureBoxes;
@@ -44,7 +45,7 @@ namespace CS2KZMappingTools
         private Dictionary<string, int>? _faceRotations;
         private Dictionary<int, string>? _positionToFace; // Maps preview position index to current face name
         private List<string>? _selectedFiles;
-        private string[] _faceNames = { "up", "down", "left", "front", "right", "back" };
+        private string[] _faceNames = { "up", "down", "right", "front", "left", "back" };
         private string[] _addonList = Array.Empty<string>();
         private string? _cs2Path;
 
@@ -289,10 +290,20 @@ namespace CS2KZMappingTools
                 Visible = false
             };
 
+            // Status Label (below convert button)
+            _statusLabel = new Label
+            {
+                Location = new Point(840, 590),
+                Size = new Size(120, 20),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Text = "",
+                Visible = false
+            };
+
             this.Controls.AddRange(new Control[] {
                 _selectFilesButton, _resetButton, nameLabel, _skyboxNameTextBox, addonLabel, _addonComboBox,
                 _createSkyboxVmatCheckBox, _createMoondomeVmatCheckBox,
-                _convertButton, _progressBar
+                _convertButton, _progressBar, _statusLabel
             });
 
             // Add preview controls to the form
@@ -765,6 +776,14 @@ namespace CS2KZMappingTools
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
                     _selectedFiles = openFileDialog.FileNames.ToList();
+                    
+                    // Clear status label when loading new files
+                    if (_statusLabel != null)
+                    {
+                        _statusLabel.Visible = false;
+                        _statusLabel.Text = "";
+                    }
+                    
                     LoadAndArrangeFaces();
                 }
             }
@@ -1019,12 +1038,10 @@ namespace CS2KZMappingTools
                 {
                     // Load image into memory without locking the file
                     using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var tempImage = Image.FromStream(stream))
                     {
-                        var image = Image.FromStream(stream);
-                        // Create a copy in memory so we can close the stream
-                        var memoryImage = new Bitmap(image);
-                        image.Dispose();
-                        return memoryImage;
+                        // Create a copy in memory using Clone to preserve quality
+                        return (Image)tempImage.Clone();
                     }
                 }
                 catch (Exception ex)
@@ -1222,6 +1239,13 @@ namespace CS2KZMappingTools
             _convertButton.Enabled = false;
             _progressBar.Visible = true;
             _progressBar.Value = 0;
+            
+            // Clear previous status
+            if (_statusLabel != null)
+            {
+                _statusLabel.Visible = false;
+                _statusLabel.Text = "";
+            }
 
             try
             {
@@ -1246,17 +1270,22 @@ namespace CS2KZMappingTools
                 {
                     if (_faceImages.TryGetValue(face, out var image))
                     {
-                        // Check if this came from a VTF or EXR file
-                        var originalFile = _selectedFiles.FirstOrDefault(f => 
-                            Path.GetFileNameWithoutExtension(f).ToLower().Contains(face) ||
-                            f.ToLower().Contains(face));
+                        // Get the original file path for this face
+                        if (!_faceFilePaths.TryGetValue(face, out var originalFile))
+                        {
+                            // Fallback to preview image if no file path stored
+                            convertedImages[face] = image;
+                            continue;
+                        }
 
-                        var extension = originalFile != null ? Path.GetExtension(originalFile).ToLower() : "";
+                        var extension = Path.GetExtension(originalFile).ToLower();
 
                         if (extension == ".vtf")
                         {
-                            // Convert VTF to PNG
-                            var (success, pngPath) = await ConvertVtfToPngAsync(originalFile, Path.GetTempPath());
+                            // Convert VTF to PNG with unique temp directory to avoid file conflicts
+                            var uniqueTempDir = Path.Combine(Path.GetTempPath(), ".CS2KZ-mapping-tools", "skybox-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+                            Directory.CreateDirectory(uniqueTempDir);
+                            var (success, pngPath) = await ConvertVtfToPngAsync(originalFile, uniqueTempDir);
                             if (success)
                             {
                                 tempPngFiles.Add(pngPath);
@@ -1373,13 +1402,24 @@ namespace CS2KZMappingTools
 
                 _progressBar.Value = 100;
 
-                MessageBox.Show($"Skybox conversion completed!\n\nOutput: {outputPngPath}",
-                    "Success", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                // Show success status
+                if (_statusLabel != null)
+                {
+                    _statusLabel.Text = "Successfully made";
+                    _statusLabel.ForeColor = Color.FromArgb(0, 200, 0); // Green
+                    _statusLabel.Visible = true;
+                }
 
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Conversion failed: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                // Show error status
+                if (_statusLabel != null)
+                {
+                    _statusLabel.Text = "Conversion failed";
+                    _statusLabel.ForeColor = Color.FromArgb(200, 0, 0); // Red
+                    _statusLabel.Visible = true;
+                }
                 LogMessage?.Invoke($"[Skybox] Conversion error: {ex.Message}");
             }
             finally
@@ -1434,36 +1474,42 @@ namespace CS2KZMappingTools
                         ["down"] = new Point(faceSize, faceSize * 2)
                     };
 
-                    // Map stitching positions to preview positions
-                    var stitchingToPreviewPosition = new Dictionary<string, int>
+                    // Map preview grid PHYSICAL positions to output positions
+                    // Preview position 0 is physically top center → output "up"
+                    // Preview position 1 is physically bottom center → output "down"
+                    // Preview position 2 is physically LEFT side → output "left"
+                    // Preview position 3 is physically center → output "front"
+                    // Preview position 4 is physically RIGHT side → output "right"
+                    // Preview position 5 is physically far right → output "back"
+                    var previewPosToOutputPos = new Dictionary<int, string>
                     {
-                        ["up"] = 0,     // Preview position 0 (top) -> stitching "up"
-                        ["down"] = 1,   // Preview position 1 (bottom) -> stitching "down"
-                        ["left"] = 2,   // Preview position 2 (left) -> stitching "left"
-                        ["front"] = 3,  // Preview position 3 (center) -> stitching "front"
-                        ["right"] = 4,  // Preview position 4 (right) -> stitching "right"
-                        ["back"] = 5    // Preview position 5 (far right) -> stitching "back"
+                        [0] = "up",
+                        [1] = "down",
+                        [2] = "left",   // Physical position 2 is on the left side
+                        [3] = "front",
+                        [4] = "right",  // Physical position 4 is on the right side
+                        [5] = "back"
                     };
 
-                    foreach (var stitchingPos in positions.Keys)
+                    // Stitch based on what face is in each physical preview position
+                    foreach (var mapping in previewPosToOutputPos)
                     {
-                        var previewPos = stitchingToPreviewPosition[stitchingPos];
-                        var faceName = _positionToFace[previewPos]; // Get which face is currently in this preview position
-
+                        int previewPos = mapping.Key;
+                        string outputPos = mapping.Value;
+                        
+                        // Get which face is currently in this preview position
+                        var faceName = _positionToFace[previewPos];
+                        
                         if (_faceImages.TryGetValue(faceName, out var faceImage))
                         {
                             var rotatedImage = RotateImage(faceImage, _faceRotations[faceName]);
 
-                            // Resize to faceSize x faceSize if needed
-                            using (var resizedImage = new Bitmap(rotatedImage, new Size(faceSize, faceSize)))
-                            {
-                                var position = positions[stitchingPos];
-                                // Draw with exact rectangle to avoid any gaps
-                                graphics.DrawImage(resizedImage, 
-                                    new Rectangle(position.X, position.Y, faceSize, faceSize),
-                                    new Rectangle(0, 0, resizedImage.Width, resizedImage.Height),
-                                    GraphicsUnit.Pixel);
-                            }
+                            // Draw directly without intermediate resize to preserve quality
+                            var position = positions[outputPos];
+                            graphics.DrawImage(rotatedImage, 
+                                new Rectangle(position.X, position.Y, faceSize, faceSize),
+                                new Rectangle(0, 0, rotatedImage.Width, rotatedImage.Height),
+                                GraphicsUnit.Pixel);
                         }
                     }
                 }
@@ -1531,45 +1577,52 @@ namespace CS2KZMappingTools
 
                     await process.WaitForExitAsync();
                     
-                    // Ensure process is completely finished
-                    process.WaitForExit(1000);  // Additional synchronous wait
-                    process.Close();
-                    process.Dispose();
-
-                    if (process.ExitCode != 0)
+                    // Capture output before disposing
+                    int exitCode = process.ExitCode;
+                    string stdOut = await process.StandardOutput.ReadToEndAsync();
+                    string stdErr = await process.StandardError.ReadToEndAsync();
+                    
+                    if (exitCode != 0)
                     {
-                        string error = await process.StandardError.ReadToEndAsync();
-                        string errorMsg = string.IsNullOrEmpty(error) ? $"VTFCmd.exe failed with return code {process.ExitCode}" : error;
+                        string errorMsg = string.IsNullOrEmpty(stdErr) ? $"VTFCmd.exe failed with return code {exitCode}" : stdErr;
                         return (false, $"Conversion error: {errorMsg}");
                     }
                 }
 
                 // Check if output file was created
                 string expectedPng = Path.Combine(absOutputDir, Path.GetFileNameWithoutExtension(baseName) + ".png");
+                
+                // Wait a bit for VTFCmd to finish writing
+                await Task.Delay(500);
+                
                 if (File.Exists(expectedPng))
                 {
-                    // Add a longer delay to ensure VTFCmd.exe has fully released the file
-                    await Task.Delay(1000);  // 1 second delay
-                    
                     // Try to validate the file by checking if we can open it
-                    try
+                    for (int retry = 0; retry < 5; retry++)
                     {
-                        using (var testStream = File.OpenRead(expectedPng))
+                        try
                         {
-                            // File is accessible
+                            using (var testStream = File.OpenRead(expectedPng))
+                            {
+                                // File is accessible
+                            }
+                            return (true, expectedPng);
                         }
-                        return (true, expectedPng);
+                        catch
+                        {
+                            // File is still locked, wait and retry
+                            await Task.Delay(200);
+                        }
                     }
-                    catch
-                    {
-                        // File is still locked, try one more time after additional delay
-                        await Task.Delay(500);
-                        return (true, expectedPng);
-                    }
+                    // File exists but still locked after retries - return it anyway
+                    return (true, expectedPng);
                 }
                 else
                 {
-                    return (false, "Output file was not created");
+                    // Log what files actually exist in the directory for debugging
+                    var filesInDir = Directory.GetFiles(absOutputDir, "*.png");
+                    var fileList = string.Join(", ", filesInDir.Select(Path.GetFileName));
+                    return (false, $"Output file was not created. Expected: {Path.GetFileName(expectedPng)}, Found in dir: {fileList}");
                 }
             }
             catch (Exception ex)

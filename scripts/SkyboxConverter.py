@@ -520,7 +520,6 @@ def convert_vtf_to_png(vtf_path, output_dir):
             raise Exception(f"VTFLib.dll not found at: {vtflib_path}")
         
         # VTFCmd.exe command for VTF to PNG conversion
-        # Based on VTFCmd documentation: vtfcmd.exe -file "input.vtf" -output "output_dir" -exportformat "png"
         cmd = [
             VTFCMD_PATH,
             '-file', abs_vtf_path,
@@ -572,6 +571,13 @@ def convert_vtf_to_png(vtf_path, output_dir):
         
         if not os.path.exists(png_path):
             raise Exception(f"VTFCmd.exe did not create expected output file: {png_path}")
+        
+        # Debug: Check the size of the converted PNG
+        try:
+            with Image.open(png_path) as test_img:
+                print(f"     -> Converted VTF size: {test_img.size[0]}x{test_img.size[1]}")
+        except:
+            pass
         
         print(f"     -> Saved temporary file: {os.path.basename(png_path)}")
         return png_path
@@ -1006,14 +1012,10 @@ def stitch_cubemap_rotated(filenames_map, output_file_path, temp_dir):
              transform_description.append("REPLACED 4x4 with Black Square")
 
         elif is_dome_map and target_slot in ['left', 'front', 'right', 'back']:
-            # Dome Map Horizontal Face (2:1 -> W x H) to 1:1 Slot (H x H), with black bottom
-            target_height = base_unit_size // 2 
-            image_resized = image_to_paste.resize((base_unit_size, target_height), Image.Resampling.LANCZOS)
-            final_face = Image.new('RGBA', (base_unit_size, base_unit_size), (0, 0, 0, 255))
-            final_face.paste(image_resized, (0, 0))
-            image_to_paste = final_face
-            
-            transform_description.append(f"Dome Map (2:1) to 1:1 Top")
+            # Dome Map Horizontal Face (2:1 -> W x H) to 1:1 Slot (H x H)
+            # Resize the 2:1 image to fill the entire square slot
+            image_to_paste = image_to_paste.resize((base_unit_size, base_unit_size), Image.Resampling.LANCZOS)
+            transform_description.append(f"Dome Map (2:1) stretched to 1:1")
             
         else:
             # Standard resize: Scale any other 1:1 image to the correct 1:1 slot size.
@@ -1023,9 +1025,9 @@ def stitch_cubemap_rotated(filenames_map, output_file_path, temp_dir):
 
         # --- 2b. Apply Transformations (Rotation/Flip) ---
 
-        # Apply Rotation
+        # Apply Rotation - use NEAREST resample to avoid blur from interpolation
         if rotation_degrees != 0:
-            image_to_paste = image_to_paste.rotate(rotation_degrees, expand=False)
+            image_to_paste = image_to_paste.rotate(rotation_degrees, expand=False, resample=Image.Resampling.NEAREST)
             transform_description.append(f"Rotated {rotation_degrees}° CCW")
         
         # Apply Flip/Transpose

@@ -423,6 +423,7 @@ namespace CS2KZMappingTools
                 }
 
                 // VTFCmd.exe command for VTF to PNG conversion
+                // Use -mipmap 0 to export the highest quality mipmap level (not blurred lower mipmaps)
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = _vtfCmdPath,
