@@ -53,20 +53,20 @@ jobs:
     
     - name: Rename Artifacts
       run: |
-        Rename-Item -Path "publish/self-contained/CS2KZMappingTools.exe" -NewName "jakke's tools.exe"
-        Rename-Item -Path "publish/framework-dependent/CS2KZMappingTools.exe" -NewName "jakke's tools-Lite.exe"
+        Rename-Item -Path "publish/self-contained/CS2KZMappingTools.exe" -NewName "jakkes-tools.exe"
+        Rename-Item -Path "publish/framework-dependent/CS2KZMappingTools.exe" -NewName "jakkes-tools-Lite.exe"
     
     - name: Upload Self-Contained Artifact
       uses: actions/upload-artifact@v4
       with:
         name: jakkes-tools
-        path: publish/self-contained/jakke's tools.exe
+        path: publish/self-contained/jakkes-tools.exe
     
     - name: Upload Framework-Dependent Artifact
       uses: actions/upload-artifact@v4
       with:
         name: jakkes-tools-lite
-        path: publish/framework-dependent/jakke's tools-Lite.exe
+        path: publish/framework-dependent/jakkes-tools-Lite.exe
     
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -82,16 +82,14 @@ jobs:
           
           ## Downloads
           
-          **jakke's tools.exe (Recommended for most users)** - ~100MB
+          **jakkes-tools.exe (Recommended for most users)**
           - Includes .NET Runtime embedded - no installation required
-          - Just download and run!
           
-          **jakke's tools-Lite.exe (Smaller download)** - ~5MB
+          **jakkes-tools-Lite.exe (Smaller download)**
           - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
-          - For users who already have .NET 8 installed
         files: |
-          publish/self-contained/jakke's tools.exe
-          publish/framework-dependent/jakke's tools-Lite.exe
+          publish/self-contained/jakkes-tools.exe
+          publish/framework-dependent/jakkes-tools-Lite.exe
         draft: false
         prerelease: false
       env:
