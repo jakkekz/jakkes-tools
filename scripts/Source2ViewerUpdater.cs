@@ -4,6 +4,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -13,6 +14,9 @@ namespace CS2KZMappingTools
     {
         private const string VERSION_CHECK_URL = "https://api.github.com/repos/ValveResourceFormat/ValveResourceFormat/commits/master";
         private const string DOWNLOAD_URL = "https://nightly.link/ValveResourceFormat/ValveResourceFormat/workflows/build/master/Source2Viewer.zip";
+        private const int MAX_RETRIES = 3;
+        private const int RETRY_DELAY_MS = 2000;
+        private const int REQUEST_TIMEOUT_SECONDS = 30;
         
         private readonly string _basePath;
         private readonly string _installDir;
@@ -42,37 +46,107 @@ namespace CS2KZMappingTools
         
         public async Task<string?> GetRemoteVersionAsync()
         {
-            try
+            for (int attempt = 1; attempt <= MAX_RETRIES; attempt++)
             {
-                StatusChanged?.Invoke(this, "Checking remote version...");
-                
-                using var client = new HttpClient();
-                client.DefaultRequestHeaders.Add("User-Agent", "CS2KZ-Mapping-Tools");
-                client.Timeout = TimeSpan.FromSeconds(10);
-                
-                var response = await client.GetStringAsync(VERSION_CHECK_URL);
-                using var doc = JsonDocument.Parse(response);
-                
-                if (doc.RootElement.TryGetProperty("sha", out var shaElement))
+                try
                 {
-                    string fullSha = shaElement.GetString() ?? "";
-                    string version = fullSha.Substring(0, Math.Min(8, fullSha.Length)).ToUpper();
-                    StatusChanged?.Invoke(this, $"Remote version: {version}");
-                    return version;
+                    StatusChanged?.Invoke(this, attempt > 1 
+                        ? $"Checking remote version (attempt {attempt}/{MAX_RETRIES})..." 
+                        : "Checking remote version...");
+                    
+                    using var client = new HttpClient();
+                    client.DefaultRequestHeaders.Add("User-Agent", "CS2KZ-Mapping-Tools");
+                    
+                    // Add GitHub token if available for higher rate limits
+                    var token = SettingsManager.Instance.GitHubToken;
+                    if (!string.IsNullOrWhiteSpace(token))
+                    {
+                        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+                    }
+                    
+                    client.Timeout = TimeSpan.FromSeconds(REQUEST_TIMEOUT_SECONDS);
+                    
+                    var response = await client.GetStringAsync(VERSION_CHECK_URL);
+                    using var doc = JsonDocument.Parse(response);
+                    
+                    if (doc.RootElement.TryGetProperty("sha", out var shaElement))
+                    {
+                        string fullSha = shaElement.GetString() ?? "";
+                        string version = fullSha.Substring(0, Math.Min(8, fullSha.Length)).ToUpper();
+                        StatusChanged?.Invoke(this, $"Remote version: {version}");
+                        return version;
+                    }
+                    
+                    return null;
                 }
-                
-                return null;
+                catch (HttpRequestException ex) when (ex.Message.Contains("403"))
+                {
+                    string msg = "GitHub API rate limit exceeded (60 requests/hour for unauthenticated). ";
+                    if (string.IsNullOrWhiteSpace(SettingsManager.Instance.GitHubToken))
+                    {
+                        msg += "Consider adding a GitHub token in settings to increase limit to 5000/hour.";
+                    }
+                    else
+                    {
+                        msg += "Your GitHub token may be invalid or also rate-limited.";
+                    }
+                    StatusChanged?.Invoke(this, msg);
+                    return null;
+                }
+                catch (HttpRequestException ex) when (ex.InnerException is SocketException socketEx)
+                {
+                    string errorMsg = socketEx.SocketErrorCode switch
+                    {
+                        SocketError.HostNotFound => "DNS resolution failed - cannot resolve api.github.com. Check your DNS settings.",
+                        SocketError.TimedOut => "Connection timed out - check your internet connection.",
+                        SocketError.ConnectionRefused => "Connection refused by server.",
+                        SocketError.NetworkUnreachable => "Network is unreachable - check your internet connection.",
+                        _ => $"Network error: {socketEx.Message}"
+                    };
+                    
+                    if (attempt < MAX_RETRIES)
+                    {
+                        StatusChanged?.Invoke(this, $"{errorMsg} Retrying in {RETRY_DELAY_MS / 1000} seconds...");
+                        await Task.Delay(RETRY_DELAY_MS);
+                        continue;
+                    }
+                    else
+                    {
+                        StatusChanged?.Invoke(this, $"Error checking version: {errorMsg}");
+                        return null;
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    if (attempt < MAX_RETRIES)
+                    {
+                        StatusChanged?.Invoke(this, $"Request timed out after {REQUEST_TIMEOUT_SECONDS}s. Retrying...");
+                        await Task.Delay(RETRY_DELAY_MS);
+                        continue;
+                    }
+                    else
+                    {
+                        StatusChanged?.Invoke(this, $"Error checking version: Request timed out after {MAX_RETRIES} attempts.");
+                        return null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (attempt < MAX_RETRIES)
+                    {
+                        StatusChanged?.Invoke(this, $"Error: {ex.Message}. Retrying...");
+                        await Task.Delay(RETRY_DELAY_MS);
+                        continue;
+                    }
+                    else
+                    {
+                        StatusChanged?.Invoke(this, $"Error checking version: {ex.Message}");
+                        return null;
+                    }
+                }
             }
-            catch (HttpRequestException ex) when (ex.Message.Contains("403"))
-            {
-                StatusChanged?.Invoke(this, "GitHub API rate limit exceeded. Will try again later.");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke(this, $"Error checking version: {ex.Message}");
-                return null;
-            }
+            
+            return null;
         }
         
         public string GetLocalVersion()

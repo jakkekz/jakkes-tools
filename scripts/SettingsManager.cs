@@ -124,6 +124,12 @@ namespace CS2KZMappingTools
             get => _settings.ShowConsole;
             set { _settings.ShowConsole = value; SaveSettings(); }
         }
+
+        public string GitHubToken
+        {
+            get => _settings.GitHubToken;
+            set { _settings.GitHubToken = value; SaveSettings(); }
+        }
     }
 
     public class Settings
@@ -162,5 +168,6 @@ namespace CS2KZMappingTools
         public bool AutoUpdateCS2KZ { get; set; } = true;
         public float Scale { get; set; } = 1.0f;
         public bool ShowConsole { get; set; } = false;
+        public string GitHubToken { get; set; } = ""; // Optional: increases API rate limit from 60 to 5000/hour
     }
 }

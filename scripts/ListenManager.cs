@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +17,10 @@ namespace CS2KZMappingTools
 {
     public class ListenManager
     {
-        private static readonly HttpClient httpClient = new HttpClient();
+        private static readonly HttpClient httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5)
+        };
         private const string STEAM_REGISTRY_KEY = @"Software\Valve\Steam";
         private const string METAMOD_LATEST_URL = "https://mms.alliedmods.net/mmsdrop/2.0/mmsource-latest-windows";
         private const string CS2KZ_API_URL = "https://api.github.com/repos/KZGlobalTeam/cs2kz-metamod/releases/latest";
@@ -490,55 +494,115 @@ namespace CS2KZMappingTools
 
         public async Task DownloadAndExtractMetamodAsync(string cs2Dir)
         {
-            try
+            const int maxRetries = 3;
+            const int retryDelayMs = 2000;
+            
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                Log("Downloading Metamod...");
-                ProgressIndeterminate?.Invoke();
-                
-                var latestResponse = await httpClient.GetAsync(METAMOD_LATEST_URL);
-                latestResponse.EnsureSuccessStatusCode();
-                var filename = (await latestResponse.Content.ReadAsStringAsync()).Trim();
-                
-                var downloadUrl = $"https://mms.alliedmods.net/mmsdrop/2.0/{filename}";
-                var archivePath = Path.Combine(Path.GetTempPath(), filename);
-
-                Log($"Downloading from {downloadUrl}...");
-                using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                try
                 {
-                    response.EnsureSuccessStatusCode();
-                    var contentLength = response.Content.Headers.ContentLength;
-                    
-                    using (var stream = await response.Content.ReadAsStreamAsync())
-                    using (var fileStream = new FileStream(archivePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    if (attempt > 1)
                     {
-                        var buffer = new byte[8192];
-                        long totalBytesRead = 0;
-                        int bytesRead;
+                        Log($"Downloading Metamod... (attempt {attempt}/{maxRetries})");
+                    }
+                    else
+                    {
+                        Log("Downloading Metamod...");
+                    }
+                    ProgressIndeterminate?.Invoke();
+                    
+                    var latestResponse = await httpClient.GetAsync(METAMOD_LATEST_URL);
+                    latestResponse.EnsureSuccessStatusCode();
+                    var filename = (await latestResponse.Content.ReadAsStringAsync()).Trim();
+                    
+                    var downloadUrl = $"https://mms.alliedmods.net/mmsdrop/2.0/{filename}";
+                    var archivePath = Path.Combine(Path.GetTempPath(), filename);
+
+                    Log($"Downloading from {downloadUrl}...");
+                    using (var response = await httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                    {
+                        response.EnsureSuccessStatusCode();
+                        var contentLength = response.Content.Headers.ContentLength;
                         
-                        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        using (var stream = await response.Content.ReadAsStreamAsync())
+                        using (var fileStream = new FileStream(archivePath, FileMode.Create, FileAccess.Write, FileShare.None))
                         {
-                            await fileStream.WriteAsync(buffer, 0, bytesRead);
-                            totalBytesRead += bytesRead;
+                            var buffer = new byte[8192];
+                            long totalBytesRead = 0;
+                            int bytesRead;
                             
-                            if (contentLength.HasValue && contentLength.Value > 0)
+                            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                             {
-                                ProgressUpdated?.Invoke((int)totalBytesRead, (int)contentLength.Value);
+                                await fileStream.WriteAsync(buffer, 0, bytesRead);
+                                totalBytesRead += bytesRead;
+                                
+                                if (contentLength.HasValue && contentLength.Value > 0)
+                                {
+                                    ProgressUpdated?.Invoke((int)totalBytesRead, (int)contentLength.Value);
+                                }
                             }
                         }
                     }
+                    
+                    Log("Download complete. Extracting...");
+                    var outputDir = Path.Combine(cs2Dir, "game", "csgo");
+                    ZipFile.ExtractToDirectory(archivePath, outputDir, true);
+                    
+                    File.Delete(archivePath);
+                    Log("✓ Metamod extracted successfully");
+                    return; // Success
                 }
-                
-                Log("Download complete. Extracting...");
-                var outputDir = Path.Combine(cs2Dir, "game", "csgo");
-                ZipFile.ExtractToDirectory(archivePath, outputDir, true);
-                
-                File.Delete(archivePath);
-                Log("✓ Metamod extracted successfully");
-            }
-            catch (Exception ex)
-            {
-                Log($"Error downloading/extracting Metamod: {ex.Message}");
-                throw;
+                catch (HttpRequestException ex) when (ex.InnerException is SocketException socketEx)
+                {
+                    string errorMsg = socketEx.SocketErrorCode switch
+                    {
+                        SocketError.HostNotFound => "DNS resolution failed. Check your DNS settings.",
+                        SocketError.TimedOut => "Connection timed out - check your internet connection.",
+                        SocketError.ConnectionRefused => "Connection refused by server.",
+                        SocketError.NetworkUnreachable => "Network unreachable - check your internet connection.",
+                        _ => "Network error: " + socketEx.Message
+                    };
+                    
+                    if (attempt < maxRetries)
+                    {
+                        Log($"{errorMsg} Retrying in {retryDelayMs / 1000} seconds...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading/extracting Metamod: {errorMsg}");
+                        throw new Exception($"Failed after {maxRetries} attempts: {errorMsg}", ex);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    if (attempt < maxRetries)
+                    {
+                        Log($"Download timed out. Retrying (attempt {attempt + 1}/{maxRetries})...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading/extracting Metamod: Timed out after {maxRetries} attempts.");
+                        throw new Exception($"Download timed out after {maxRetries} attempts.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (attempt < maxRetries && (ex.Message.Contains("timeout") || ex.Message.Contains("network")))
+                    {
+                        Log($"Error: {ex.Message}. Retrying...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading/extracting Metamod: {ex.Message}");
+                        throw;
+                    }
+                }
             }
         }
 
@@ -547,7 +611,18 @@ namespace CS2KZMappingTools
             try
             {
                 Log("Checking latest CS2KZ version...");
-                var response = await httpClient.GetAsync(CS2KZ_API_URL);
+                
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("User-Agent", "CS2KZ-Mapping-Tools");
+                
+                // Add GitHub token if available
+                var token = SettingsManager.Instance.GitHubToken;
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {token}");
+                }
+                
+                var response = await client.GetAsync(CS2KZ_API_URL);
                 response.EnsureSuccessStatusCode();
                 
                 var jsonContent = await response.Content.ReadAsStringAsync();
@@ -559,6 +634,15 @@ namespace CS2KZMappingTools
                     Log($"Latest CS2KZ version: {version}");
                     return version;
                 }
+            }
+            catch (HttpRequestException ex) when (ex.Message.Contains("403"))
+            {
+                string msg = "GitHub API rate limit exceeded (60/hour unauthenticated). ";
+                if (string.IsNullOrWhiteSpace(SettingsManager.Instance.GitHubToken))
+                {
+                    msg += "Add a GitHub token in settings for 5000/hour.";
+                }
+                Log(msg);
             }
             catch (Exception ex)
             {
@@ -625,18 +709,37 @@ namespace CS2KZMappingTools
             }
         }
 
-        public async Task DownloadCS2KZAsync(string cs2Dir)
+        public async Task<string?> DownloadCS2KZAsync(string cs2Dir)
         {
-            try
+            const int maxRetries = 3;
+            const int retryDelayMs = 2000;
+            
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                Log("Downloading CS2KZ plugin...");
-                ProgressIndeterminate?.Invoke();
-                
-                var response = await httpClient.GetAsync(CS2KZ_API_URL);
-                response.EnsureSuccessStatusCode();
-                
-                var jsonContent = await response.Content.ReadAsStringAsync();
-                var releaseData = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+                try
+                {
+                    if (attempt > 1)
+                    {
+                        Log($"Downloading CS2KZ plugin... (attempt {attempt}/{maxRetries})");
+                    }
+                    else
+                    {
+                        Log("Downloading CS2KZ plugin...");
+                    }
+                    ProgressIndeterminate?.Invoke();
+                    
+                    var response = await httpClient.GetAsync(CS2KZ_API_URL);
+                    response.EnsureSuccessStatusCode();
+                    
+                    var jsonContent = await response.Content.ReadAsStringAsync();
+                    var releaseData = JsonSerializer.Deserialize<JsonElement>(jsonContent);
+                    
+                    // Extract version from API response
+                    string? version = null;
+                    if (releaseData.TryGetProperty("tag_name", out var tagNameElement))
+                    {
+                        version = tagNameElement.GetString();
+                    }
                 
                 if (!releaseData.TryGetProperty("assets", out var assetsElement) || 
                     assetsElement.GetArrayLength() == 0)
@@ -704,12 +807,61 @@ namespace CS2KZMappingTools
                 await File.WriteAllBytesAsync(Path.Combine(fgdPath, "csgo_internal.fgd"), fgdContent);
                 
                 Log("✓ Mapping API FGD downloaded");
+                return version; // Success
+                }
+                catch (HttpRequestException ex) when (ex.InnerException is SocketException socketEx)
+                {
+                    string errorMsg = socketEx.SocketErrorCode switch
+                    {
+                        SocketError.HostNotFound => "DNS resolution failed. Check your DNS settings.",
+                        SocketError.TimedOut => "Connection timed out - check your internet connection.",
+                        SocketError.ConnectionRefused => "Connection refused by server.",
+                        SocketError.NetworkUnreachable => "Network unreachable - check your internet connection.",
+                        _ => "Network error: " + socketEx.Message
+                    };
+                    
+                    if (attempt < maxRetries)
+                    {
+                        Log($"{errorMsg} Retrying in {retryDelayMs / 1000} seconds...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading CS2KZ: {errorMsg}");
+                        throw new Exception($"Failed after {maxRetries} attempts: {errorMsg}", ex);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    if (attempt < maxRetries)
+                    {
+                        Log($"Download timed out. Retrying (attempt {attempt + 1}/{maxRetries})...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading CS2KZ: Timed out after {maxRetries} attempts.");
+                        throw new Exception($"Download timed out after {maxRetries} attempts.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (attempt < maxRetries && (ex.Message.Contains("timeout") || ex.Message.Contains("network")))
+                    {
+                        Log($"Error: {ex.Message}. Retrying...");
+                        await Task.Delay(retryDelayMs);
+                        continue;
+                    }
+                    else
+                    {
+                        Log($"Error downloading CS2KZ: {ex.Message}");
+                        throw;
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                Log($"Error downloading CS2KZ: {ex.Message}");
-                throw;
-            }
+            return null; // Failed after all retries
         }
 
         private void SetupAssetBin(string cs2Dir)
@@ -870,6 +1022,9 @@ namespace CS2KZMappingTools
         {
             Log($"Setting up CS2KZ listen server in {cs2Dir}...");
             
+            string? metamodVersion = null;
+            string? cs2kzVersion = null;
+            
             if (updateMetamod)
             {
                 try
@@ -891,7 +1046,7 @@ namespace CS2KZMappingTools
             {
                 try
                 {
-                    await DownloadCS2KZAsync(cs2Dir);
+                    cs2kzVersion = await DownloadCS2KZAsync(cs2Dir); // Now returns version!
                 }
                 catch (Exception ex)
                 {
@@ -930,11 +1085,11 @@ namespace CS2KZMappingTools
             var versions = new Dictionary<string, string>();
             if (updateMetamod)
             {
-                versions["metamod"] = await GetLatestMetamodVersionAsync() ?? existingVersions.GetValueOrDefault("metamod", "unknown");
+                versions["metamod"] = metamodVersion ?? existingVersions.GetValueOrDefault("metamod", "unknown");
             }
             if (updateCS2KZ)
             {
-                versions["cs2kz"] = await GetLatestCS2KZVersionAsync() ?? existingVersions.GetValueOrDefault("cs2kz", "unknown");
+                versions["cs2kz"] = cs2kzVersion ?? existingVersions.GetValueOrDefault("cs2kz", "unknown");
                 versions["mapping_api"] = await GetMappingApiHashAsync() ?? existingVersions.GetValueOrDefault("mapping_api", "unknown");
             }
             

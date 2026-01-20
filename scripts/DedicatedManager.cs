@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Win32;
@@ -11,7 +12,10 @@ namespace CS2KZMappingTools
 {
     public class DedicatedManager
     {
-        private static readonly HttpClient httpClient = new HttpClient();
+        private static readonly HttpClient httpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromMinutes(5)
+        };
         private const string STEAM_REGISTRY_KEY = @"Software\Valve\Steam";
         private const string GAMETRACKING_BASE_URL = "https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/refs/heads/master/";
         private static readonly string TEMP_FOLDER = Path.Combine(Path.GetTempPath(), ".CS2KZ-mapping-tools");
@@ -280,6 +284,9 @@ namespace CS2KZMappingTools
 
         private async Task DownloadOriginalFilesAsync()
         {
+            const int maxRetries = 3;
+            const int retryDelayMs = 2000;
+            
             try
             {
                 Log("Downloading original gameinfo files from GitHub...");
@@ -302,21 +309,77 @@ namespace CS2KZMappingTools
                         localPath = Path.Combine(ORIGINAL_FILES_FOLDER, "gameinfo_core.gi");
                     }
                     
-                    try
+                    for (int attempt = 1; attempt <= maxRetries; attempt++)
                     {
-                        Log($"Downloading {filePath}...");
-                        var response = await httpClient.GetAsync(url);
-                        response.EnsureSuccessStatusCode();
-                        
-                        var content = await response.Content.ReadAsStringAsync();
-                        content = content.Replace("\n", "\r\n");
-                        
-                        await File.WriteAllTextAsync(localPath, content);
-                        Log($"✓ Downloaded {Path.GetFileName(localPath)}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"✗ Failed to download {filePath}: {ex.Message}");
+                        try
+                        {
+                            if (attempt > 1)
+                            {
+                                Log($"Downloading {filePath}... (attempt {attempt}/{maxRetries})");
+                            }
+                            else
+                            {
+                                Log($"Downloading {filePath}...");
+                            }
+                            
+                            var response = await httpClient.GetAsync(url);
+                            response.EnsureSuccessStatusCode();
+                            
+                            var content = await response.Content.ReadAsStringAsync();
+                            content = content.Replace("\n", "\r\n");
+                            
+                            await File.WriteAllTextAsync(localPath, content);
+                            Log($"✓ Downloaded {Path.GetFileName(localPath)}");
+                            break; // Success
+                        }
+                        catch (HttpRequestException ex) when (ex.InnerException is SocketException socketEx)
+                        {
+                            string errorMsg = socketEx.SocketErrorCode switch
+                            {
+                                SocketError.HostNotFound => "DNS resolution failed",
+                                SocketError.TimedOut => "Connection timed out",
+                                SocketError.ConnectionRefused => "Connection refused",
+                                SocketError.NetworkUnreachable => "Network unreachable",
+                                _ => $"Network error: {socketEx.Message}"
+                            };
+                            
+                            if (attempt < maxRetries)
+                            {
+                                Log($"{errorMsg}. Retrying...");
+                                await Task.Delay(retryDelayMs);
+                                continue;
+                            }
+                            else
+                            {
+                                Log($"✗ Failed to download {filePath}: {errorMsg}");
+                            }
+                        }
+                        catch (TaskCanceledException)
+                        {
+                            if (attempt < maxRetries)
+                            {
+                                Log($"Download timed out. Retrying...");
+                                await Task.Delay(retryDelayMs);
+                                continue;
+                            }
+                            else
+                            {
+                                Log($"✗ Failed to download {filePath}: Timed out");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            if (attempt < maxRetries)
+                            {
+                                Log($"Error: {ex.Message}. Retrying...");
+                                await Task.Delay(retryDelayMs);
+                                continue;
+                            }
+                            else
+                            {
+                                Log($"✗ Failed to download {filePath}: {ex.Message}");
+                            }
+                        }
                     }
                 }
                 
