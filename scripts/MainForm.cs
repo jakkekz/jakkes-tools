@@ -275,6 +275,7 @@ namespace CS2KZMappingTools
                 ["vtf2png"] = "vtf2png.ico",
                 ["loading_screen"] = "loading.ico",
                 ["point_worldtext"] = "text.ico",
+                ["text_overlay"] = "textgen.ico",
                 ["sounds"] = "sounds.ico",
                 ["title_icon"] = "icon.ico",
                 ["update_available"] = "update.ico",
@@ -349,6 +350,7 @@ namespace CS2KZMappingTools
                 ["skyboxconverter"] = ("Skybox\nConverter", "Convert cubemap skyboxes to CS2 format"),
                 ["loading_screen"] = ("Loading\nScreen", "Add loading screen images and map info"),
                 ["point_worldtext"] = ("Point\nWorldtext", "Create CS:GO style point_worldtext images"),
+                ["text_overlay"] = ("Fuck\nworldtext", "Generate text overlays with .vmat materials"),
                 ["vtf2png"] = ("VTF to\nPNG", "Convert CS:GO VTF files to PNG"),
                 ["sounds"] = ("Sounds", "Make adding custom sounds easier")
             };
@@ -705,6 +707,7 @@ namespace CS2KZMappingTools
                 ["skyboxconverter"] = "skybox.ico",
                 ["loading_screen"] = "loading.ico",
                 ["point_worldtext"] = "text.ico",
+                ["text_overlay"] = "textgen.ico",
                 ["vtf2png"] = "vtf2png.ico",
                 ["sounds"] = "sounds.ico"
             };
@@ -2108,6 +2111,10 @@ namespace CS2KZMappingTools
                         LaunchPointWorldTextAsync();
                         break;
                     
+                    case "text_overlay":
+                        ShowTextOverlayForm();
+                        break;
+                    
                     case "sounds":
                         ShowSoundsManagerForm();
                         break;
@@ -2783,6 +2790,21 @@ if __name__ == '__main__':
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening Loading Screen Creator: {ex.Message}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ShowTextOverlayForm()
+        {
+            try
+            {
+                var textOverlayForm = new TextOverlayForm(_themeManager);
+                textOverlayForm.LogMessage += OnLogMessage;
+                textOverlayForm.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening Text Overlay Generator: {ex.Message}", 
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

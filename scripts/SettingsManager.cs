@@ -153,6 +153,7 @@ namespace CS2KZMappingTools
             ["vtf2png"] = false,
             ["loading_screen"] = true,
             ["point_worldtext"] = false,
+            ["text_overlay"] = true,
             ["sounds"] = true
         };
 
@@ -160,7 +161,7 @@ namespace CS2KZMappingTools
         {
             "mapping", "listen", "dedicated_server", "insecure", "source2viewer",
             "cs2importer", "skyboxconverter", "loading_screen", "point_worldtext",
-            "vtf2png", "sounds"
+            "text_overlay", "vtf2png", "sounds"
         };
 
         public bool AutoUpdateSource2Viewer { get; set; } = true;
