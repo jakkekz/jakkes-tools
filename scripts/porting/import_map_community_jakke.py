@@ -667,7 +667,19 @@ def DisableVPKSignatures(s2gamecsgo):
 			return vpk_sig_path, vpk_sig_old
 		except Exception as e:
 			print(f"Warning: Could not rename vpk.signatures: {e}")
-			return None, None
+			print("")
+			print("=" * 70)
+			print("ERROR: vpk.signatures file is locked by another process!")
+			print("")
+			print("This usually means CS2 or Hammer is currently running.")
+			print("Please close CS2 and all Hammer instances, then try again.")
+			print("=" * 70)
+			print("")
+			sys.exit(1)
+	elif os.path.exists(vpk_sig_old):
+		# Already disabled, good to go
+		print(f"VPK signature checking already disabled")
+		return vpk_sig_path, vpk_sig_old
 	return None, None
 
 def RestoreVPKSignatures(vpk_sig_path, vpk_sig_old):
@@ -735,6 +747,15 @@ s2gameaddon = s2gamecsgo.replace( "game\\csgo", s2gameaddondir )
 s2contentcsgo = s2gameaddon.replace( r"game\csgo_addons", r"content\csgo_addons" )
 s2contentcsgoimported = s2contentcsgo
 
+# Create the game\csgo_addons\{addon} folder so addon shows up in Hammer
+# This is separate from content\csgo_addons (which holds the actual files)
+try:
+	if not os.path.exists(s2gameaddon):
+		os.makedirs(s2gameaddon, exist_ok=True)
+		print(f"Created game addon folder: {s2gameaddon}")
+except Exception as e:
+	print(f"Warning: Could not create game addon folder: {e}")
+
 # Define a non-aborting error callback for all import operations
 # This prevents the script from exiting when individual assets fail to import
 def errorCallback(cmd=None):
@@ -797,25 +818,38 @@ try:
 	temp_maps_dir = os.path.join(temp_import_dir, "maps")
 	os.makedirs(temp_maps_dir, exist_ok=True)
 	
-	# Temporarily rename the original VMF/BSP in csgo/maps to prevent source1import from finding it
-	# source1import searches multiple paths and will use the one with spaces if it finds it first
+	# Temporarily rename the original VMF/BSP in sdk_content to prevent source1import from finding them
+	# DELETE any VMF/BSP in csgo/maps since they shouldn't be there and cause path-with-spaces issues
 	original_vmf_backup = vmf_file_path + ".backup_temp"
 	original_bsp_backup = bsp_file_path + ".backup_temp"
+	csgo_vmf_path = os.path.join(s1gamecsgo, "maps", mapname + ".vmf")
+	csgo_bsp_path = os.path.join(s1gamecsgo, "maps", mapname + ".bsp")
 	vmf_was_renamed = False
 	bsp_was_renamed = False
 	
 	try:
+		# Rename in sdk_content/maps
 		if os.path.exists(vmf_file_path):
 			os.rename(vmf_file_path, original_vmf_backup)
 			vmf_was_renamed = True
-			print(f"Temporarily renamed original VMF to prevent path issues")
+			print(f"Temporarily renamed VMF in sdk_content to prevent path issues")
 		
 		if os.path.exists(bsp_file_path):
 			os.rename(bsp_file_path, original_bsp_backup)
 			bsp_was_renamed = True
-			print(f"Temporarily renamed original BSP to prevent path issues")
+			print(f"Temporarily renamed BSP in sdk_content to prevent path issues")
+		
+		# DELETE any VMF/BSP in csgo/maps - they shouldn't be there and cause spaces-in-path errors
+		# These get auto-created by source1import sometimes and break subsequent imports
+		if os.path.exists(csgo_vmf_path):
+			os.remove(csgo_vmf_path)
+			print(f"Deleted VMF from csgo/maps (causes path issues with spaces)")
+		
+		if os.path.exists(csgo_bsp_path):
+			os.remove(csgo_bsp_path)
+			print(f"Deleted BSP from csgo/maps (causes path issues with spaces)")
 	except Exception as e:
-		print(f"Warning: Could not rename original files: {e}")
+		print(f"Warning: Could not clean up files: {e}")
 	
 	# Copy VMF to temp
 	temp_vmf = os.path.join(temp_maps_dir, mapname + ".vmf")
@@ -850,14 +884,15 @@ try:
 		print(f"Warning: VMF import failed: {e}")
 		print("Continuing with dependency import...")
 	finally:
-		# Restore renamed files
+		# Restore renamed files in sdk_content
+		# (csgo/maps files were deleted, not renamed, so don't restore them)
 		try:
 			if vmf_was_renamed and os.path.exists(original_vmf_backup):
 				os.rename(original_vmf_backup, vmf_file_path)
-				print(f"Restored original VMF")
+				print(f"Restored VMF in sdk_content")
 			if bsp_was_renamed and os.path.exists(original_bsp_backup):
 				os.rename(original_bsp_backup, bsp_file_path)
-				print(f"Restored original BSP")
+				print(f"Restored BSP in sdk_content")
 		except Exception as e:
 			print(f"Warning: Could not restore original files: {e}")
 		

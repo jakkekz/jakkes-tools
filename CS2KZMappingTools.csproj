@@ -42,6 +42,7 @@
     <EmbeddedResource Include="scripts\**\*" />
     <EmbeddedResource Include="utils\**\*" />
     <EmbeddedResource Include="fonts\**\*" />
+    <EmbeddedResource Include="requirements.txt" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +10,7 @@ namespace CS2KZMappingTools
     {
         private static string? _extractPath;
         private static bool _extracted = false;
+        private static bool _dependenciesInstalled = false;
 
         public static string ExtractResources()
         {
@@ -85,6 +87,10 @@ namespace CS2KZMappingTools
                         var fileName = relativeName.Substring("utils.".Length);
                         filePath = Path.Combine(_extractPath, "utils", fileName);
                     }
+                    else if (relativeName == "requirements.txt")
+                    {
+                        filePath = Path.Combine(_extractPath, "requirements.txt");
+                    }
                     else
                     {
                         continue; // Skip unknown resources
@@ -115,6 +121,53 @@ namespace CS2KZMappingTools
 
             _extracted = true;
             return _extractPath;
+        }
+
+        public static void EnsurePythonDependencies()
+        {
+            if (_dependenciesInstalled)
+                return;
+
+            try
+            {
+                string basePath = ExtractResources();
+                string requirementsPath = Path.Combine(basePath, "requirements.txt");
+
+                // Check if requirements.txt was extracted
+                if (!File.Exists(requirementsPath))
+                {
+                    // Create requirements.txt if not embedded
+                    File.WriteAllText(requirementsPath, @"imgui[glfw]==2.0.0
+PyOpenGL
+vdf
+Pillow
+numpy
+");
+                }
+
+                // Install dependencies silently in the background
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c pip install -q -r \"{requirementsPath}\"",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    process.WaitForExit(30000); // Wait max 30 seconds
+                    _dependenciesInstalled = true;
+                }
+            }
+            catch
+            {
+                // Silently fail - dependencies might already be installed
+                _dependenciesInstalled = true;
+            }
         }
     }
 }

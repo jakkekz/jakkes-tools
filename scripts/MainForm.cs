@@ -2092,7 +2092,7 @@ namespace CS2KZMappingTools
                 switch (toolId)
                 {
                     case "cs2importer":
-                        LaunchScript("porting/cs2importer.py");
+                        ShowCS2ImporterForm();
                         break;
                     
                     case "skyboxconverter":
@@ -2170,6 +2170,10 @@ namespace CS2KZMappingTools
         private void LaunchScript(string scriptPath)
         {
             string basePath = ResourceExtractor.ExtractResources();
+            
+            // Ensure Python dependencies are installed
+            ResourceExtractor.EnsurePythonDependencies();
+            
             string fullScriptPath = Path.Combine(basePath, "scripts", scriptPath);
             
             // Check if Python script exists
@@ -2850,6 +2854,20 @@ if __name__ == '__main__':
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening Skybox Converter: {ex.Message}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ShowCS2ImporterForm()
+        {
+            try
+            {
+                var cs2ImporterForm = new CS2ImporterForm();
+                cs2ImporterForm.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening CS2 Importer: {ex.Message}", 
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

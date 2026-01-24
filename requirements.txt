@@ -1,4 +1,4 @@
-imgui[glfw]
+imgui[glfw]==2.0.0
 PyOpenGL
 vdf
 Pillow
