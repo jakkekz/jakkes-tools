@@ -124,7 +124,13 @@ jobs:
         name: Release ${{ steps.version.outputs.tag }}
         body: |
           Automated release from commit ${{ steps.version.outputs.sha }}
-          -Complete.exe (Fully Portable - Recommended)**
+          
+          ## Changes
+          ${{ github.event.head_commit.message }}
+          
+          ## Downloads
+          
+          **jakkes-tools-Complete.exe (Fully Portable - Recommended)**
           - Includes .NET Runtime + Python embedded - completely portable, no installation required
           - ~100MB download
           - Unzip and run anywhere, no dependencies needed
@@ -140,12 +146,6 @@ jobs:
           - ~2MB download
         files: |
           publish/complete/**
-          **jakkes-tools.exe (Recommended for most users)**
-          - Includes .NET Runtime embedded - no installation required
-          
-          **jakkes-tools-Lite.exe (Smaller download)**
-          - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
-        files: |
           publish/self-contained/jakkes-tools.exe
           publish/framework-dependent/jakkes-tools-Lite.exe
         draft: false
