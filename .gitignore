@@ -48,6 +48,10 @@ artifacts/
 
 # Windows
 Thumbs.db
+
+# Local build scripts
+build-*.ps1
+publish/
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
