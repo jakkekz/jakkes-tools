@@ -148,17 +148,14 @@ jobs:
           **jakkes-tools-Complete.zip (Fully Portable - Recommended)**
           - Includes .NET Runtime + Python embedded - completely portable, no installations required
           - Extract and run anywhere, no dependencies needed
-          - ~100MB download
           
           **jakkes-tools.exe (Smaller, requires Python)**
           - Includes .NET Runtime embedded
           - Requires Python 3.11+ with dependencies from requirements.txt
-          - ~15MB download
           
           **jakkes-tools-Lite.exe (Smallest, requires both .NET + Python)**
           - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
           - Requires Python 3.11+ with dependencies from requirements.txt
-          - ~2MB download
         files: |
           jakkes-tools-Complete.zip
           publish/self-contained/jakkes-tools.exe
