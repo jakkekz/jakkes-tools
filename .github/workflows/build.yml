@@ -109,6 +109,10 @@ jobs:
         Rename-Item -Path "publish/framework-dependent/CS2KZMappingTools.exe" -NewName "jakkes-tools-Lite.exe"
         Rename-Item -Path "publish/complete/CS2KZMappingTools.exe" -NewName "jakkes-tools-Complete.exe"
     
+    - name: Create Complete Edition ZIP
+      run: |
+        Compress-Archive -Path "publish/complete/*" -DestinationPath "jakkes-tools-Complete.zip" -Force
+    
     - name: Upload Self-Contained Artifact
       uses: actions/upload-artifact@v4
       with:
@@ -125,11 +129,11 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: jakkes-tools-complete
-        path: publish/complete/**
+        path: jakkes-tools-Complete.zip
     
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.tag }}
         name: Release ${{ steps.version.outputs.tag }}
@@ -141,10 +145,10 @@ jobs:
           
           ## Downloads
           
-          **jakkes-tools-Complete.exe (Fully Portable - Recommended)**
-          - Includes .NET Runtime + Python embedded - completely portable, no installation required
+          **jakkes-tools-Complete.zip (Fully Portable - Recommended)**
+          - Includes .NET Runtime + Python embedded - completely portable, no installations required
+          - Extract and run anywhere, no dependencies needed
           - ~100MB download
-          - Unzip and run anywhere, no dependencies needed
           
           **jakkes-tools.exe (Smaller, requires Python)**
           - Includes .NET Runtime embedded
@@ -156,9 +160,10 @@ jobs:
           - Requires Python 3.11+ with dependencies from requirements.txt
           - ~2MB download
         files: |
-          publish/complete/**
+          jakkes-tools-Complete.zip
           publish/self-contained/jakkes-tools.exe
           publish/framework-dependent/jakkes-tools-Lite.exe
+        fail_on_unmatched_files: true
         draft: false
         prerelease: false
       env:
