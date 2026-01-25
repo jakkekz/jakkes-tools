@@ -9,6 +9,7 @@
     <RootNamespace>CS2KZMappingTools</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>1.0.0</Version>
     <Authors>jakkekz</Authors>
     <Product>jakke's tools</Product>

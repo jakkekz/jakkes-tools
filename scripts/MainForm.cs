@@ -350,9 +350,10 @@ namespace CS2KZMappingTools
                 ["skyboxconverter"] = ("Skybox\nConverter", "Convert cubemap skyboxes to CS2 format"),
                 ["loading_screen"] = ("Loading\nScreen", "Add loading screen images and map info"),
                 ["point_worldtext"] = ("Point\nWorldtext", "Create CS:GO style point_worldtext images"),
-                ["text_overlay"] = ("Fuck\nworldtext", "Generate text overlays with .vmat materials"),
+                ["text_overlay"] = ("Fuck\nWorldtext", "Generate text overlays with .vmat materials"),
                 ["vtf2png"] = ("VTF to\nPNG", "Convert CS:GO VTF files to PNG"),
-                ["sounds"] = ("Sounds", "Make adding custom sounds easier")
+                ["sounds"] = ("Sounds", "Make adding custom sounds easier"),
+                ["tgaconvert"] = ("TGA\nConverter", "Bulk convert TGA images to PNG/JPG with custom resolution and quality")
             };
 
             foreach (var buttonId in _settings.ButtonOrder)
@@ -600,6 +601,11 @@ namespace CS2KZMappingTools
             }
         }
         
+        public void LogToConsole(string message)
+        {
+            OnLogMessage(message);
+        }
+        
         private void ClearConsole()
         {
             if (_consoleTextBox != null)
@@ -709,7 +715,8 @@ namespace CS2KZMappingTools
                 ["point_worldtext"] = "text.ico",
                 ["text_overlay"] = "textgen.ico",
                 ["vtf2png"] = "vtf2png.ico",
-                ["sounds"] = "sounds.ico"
+                ["sounds"] = "sounds.ico",
+                ["tgaconvert"] = "tgaconvert.ico"
             };
             
             return iconMap.ContainsKey(buttonId) ? iconMap[buttonId] : "hammerkz.ico";
@@ -1142,20 +1149,45 @@ namespace CS2KZMappingTools
             menu.Renderer = new ToolStripProfessionalRenderer(new CustomColorTable(theme));
             menu.AutoClose = true;
             
-            // Button visibility items
-            foreach (var kvp in _settings.ButtonVisibility.OrderBy(x => x.Key))
+            // Define button display names
+            var buttonNames = new Dictionary<string, string>
             {
-                var visItem = new ToolStripMenuItem(kvp.Key.Replace("_", " "))
+                ["mapping"] = "Mapping",
+                ["listen"] = "Listen",
+                ["dedicated_server"] = "Dedicated Server",
+                ["insecure"] = "Insecure",
+                ["source2viewer"] = "Source2Viewer",
+                ["cs2importer"] = "CS2 Importer",
+                ["skyboxconverter"] = "Skybox Converter",
+                ["loading_screen"] = "Loading Screen",
+                ["point_worldtext"] = "Point Worldtext",
+                ["text_overlay"] = "Fuck Worldtext",
+                ["vtf2png"] = "VTF to PNG",
+                ["tgaconvert"] = "TGA Converter",
+                ["sounds"] = "Sounds"
+            };
+            
+            // Button visibility items in specific order
+            var buttonOrder = new[] { "mapping", "listen", "dedicated_server", "insecure", "source2viewer",
+                "cs2importer", "skyboxconverter", "loading_screen", "point_worldtext", "text_overlay",
+                "vtf2png", "tgaconvert", "sounds" };
+                
+            foreach (var buttonId in buttonOrder)
+            {
+                if (!_settings.ButtonVisibility.ContainsKey(buttonId))
+                    continue;
+                    
+                var visItem = new ToolStripMenuItem(buttonNames[buttonId])
                 {
-                    Checked = kvp.Value,
+                    Checked = _settings.ButtonVisibility[buttonId],
                     CheckOnClick = true,
-                    Tag = kvp.Key
+                    Tag = buttonId
                 };
                 visItem.Click += (s, e) =>
                 {
-                    if (s is ToolStripMenuItem item && item.Tag is string buttonId)
+                    if (s is ToolStripMenuItem item && item.Tag is string id)
                     {
-                        _settings.ButtonVisibility[buttonId] = item.Checked;
+                        _settings.ButtonVisibility[id] = item.Checked;
                         CreateButtons();
                         ApplyTheme();
                     }
@@ -2118,6 +2150,10 @@ namespace CS2KZMappingTools
                     case "sounds":
                         ShowSoundsManagerForm();
                         break;
+                    
+                    case "tgaconvert":
+                        ShowTGAConverterForm();
+                        break;
                         
                     case "fix_cs2":
                         FixCS2GameInfoAsync();
@@ -2868,6 +2904,20 @@ if __name__ == '__main__':
             catch (Exception ex)
             {
                 MessageBox.Show($"Error opening CS2 Importer: {ex.Message}", 
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void ShowTGAConverterForm()
+        {
+            try
+            {
+                var tgaConverterForm = new TGAConverterForm();
+                tgaConverterForm.Show();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error opening TGA Converter: {ex.Message}", 
                     "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

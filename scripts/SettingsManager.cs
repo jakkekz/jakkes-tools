@@ -154,14 +154,15 @@ namespace CS2KZMappingTools
             ["loading_screen"] = true,
             ["point_worldtext"] = false,
             ["text_overlay"] = true,
-            ["sounds"] = true
+            ["sounds"] = true,
+            ["tgaconvert"] = true
         };
 
         public List<string> ButtonOrder { get; set; } = new List<string>
         {
             "mapping", "listen", "dedicated_server", "insecure", "source2viewer",
             "cs2importer", "skyboxconverter", "loading_screen", "point_worldtext",
-            "text_overlay", "vtf2png", "sounds"
+            "text_overlay", "vtf2png", "sounds", "tgaconvert"
         };
 
         public bool AutoUpdateSource2Viewer { get; set; } = true;
