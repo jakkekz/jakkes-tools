@@ -30,6 +30,7 @@ namespace CS2KZMappingTools
         private Label? _textLabel;
         private TextBox? _textInput;
         private ComboBox? _fontComboBox;
+        private NumericUpDown? _fontSizeInput;
         private ComboBox? _alignmentComboBox;
         private ComboBox? _resolutionComboBox;
         private ComboBox? _outputLocationComboBox;
@@ -122,7 +123,7 @@ namespace CS2KZMappingTools
         private void InitializeComponent()
         {
             this.Text = "Fuck point_worldtext";
-            this.Size = new Size(520, 760);
+            this.Size = new Size(520, 770);
             this.StartPosition = FormStartPosition.CenterScreen;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -335,6 +336,27 @@ namespace CS2KZMappingTools
             _fontComboBox.SelectedIndexChanged += (s, e) => UpdatePreview();
             yPos += 30;
 
+            // Font Size
+            var fontSizeLabel = new Label
+            {
+                Text = "Font Size:",
+                Location = new Point(0, yPos),
+                Size = new Size(labelWidth, 25),
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            _fontSizeInput = new NumericUpDown
+            {
+                Location = new Point(labelWidth, yPos),
+                Size = new Size(controlWidth, 25),
+                Minimum = 10,
+                Maximum = 2000,
+                Value = 150,
+                Increment = 10
+            };
+            _fontSizeInput.ValueChanged += (s, e) => UpdatePreview();
+            yPos += 30;
+
             // Resolution
             var resolutionLabel = new Label
             {
@@ -354,7 +376,8 @@ namespace CS2KZMappingTools
             _resolutionComboBox.Items.AddRange(new object[] { 
                 "256x256", "512x512", "1024x1024", "2048x2048", "4096x4096" 
             });
-            _resolutionComboBox.SelectedIndex = 1; // Default to 512x512
+            _resolutionComboBox.SelectedIndex = 2; // Default to 1024x1024
+            _resolutionComboBox.SelectedIndexChanged += (s, e) => UpdatePreview();
             yPos += 30;
 
             // Preview
@@ -496,6 +519,7 @@ namespace CS2KZMappingTools
                 _ljNumbersPanel,
                 alignmentLabel, _alignmentComboBox,
                 fontLabel, _fontComboBox,
+                fontSizeLabel, _fontSizeInput,
                 resolutionLabel, _resolutionComboBox,
                 previewLabel, _previewPictureBox,
                 locationLabel, _outputLocationComboBox,
@@ -715,19 +739,9 @@ namespace CS2KZMappingTools
                 g.SmoothingMode = SmoothingMode.AntiAlias;
                 g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
-                // Calculate font size to fit the image
-                float fontSize = resolution / 4f;
+                // Use fixed font size from input
+                float fontSize = (float)(_fontSizeInput?.Value ?? 200);
                 Font font = new Font(fontName, fontSize, FontStyle.Bold);
-
-                // Measure text to adjust font size if needed
-                SizeF textSize = g.MeasureString(text, font);
-                while ((textSize.Width > resolution * 0.9f || textSize.Height > resolution * 0.9f) && fontSize > 10)
-                {
-                    fontSize -= 5;
-                    font.Dispose();
-                    font = new Font(fontName, fontSize, FontStyle.Bold);
-                    textSize = g.MeasureString(text, font);
-                }
 
                 // Determine alignment
                 StringAlignment horizontalAlignment = alignment switch
@@ -1121,19 +1135,21 @@ Layer0
                     g.SmoothingMode = SmoothingMode.AntiAlias;
                     g.TextRenderingHint = TextRenderingHint.AntiAlias;
 
-                    // Calculate font size
-                    float fontSize = size / 4f;
-                    Font font = new Font(fontName, fontSize, FontStyle.Bold);
-
-                    // Measure and adjust font size
-                    SizeF textSize = g.MeasureString(text, font);
-                    while ((textSize.Width > size * 0.9f || textSize.Height > size * 0.9f) && fontSize > 10)
+                    // Use fixed font size from input (scaled down for preview)
+                    float fontSize = (float)(_fontSizeInput?.Value ?? 200);
+                    // Scale font size proportionally for preview (250px vs actual resolution)
+                    string? resolutionStr = _resolutionComboBox?.SelectedItem?.ToString();
+                    if (resolutionStr != null)
                     {
-                        fontSize -= 5;
-                        font.Dispose();
-                        font = new Font(fontName, fontSize, FontStyle.Bold);
-                        textSize = g.MeasureString(text, font);
+                        int actualResolution = int.Parse(resolutionStr.Split('x')[0]);
+                        fontSize = fontSize * (size / (float)actualResolution);
                     }
+                    else
+                    {
+                        fontSize = fontSize * (size / 512f); // Default to 512x512
+                    }
+                    
+                    Font font = new Font(fontName, fontSize, FontStyle.Bold);
 
                     // Get alignment
                     string alignment = _alignmentComboBox?.SelectedItem?.ToString() ?? "Center";
