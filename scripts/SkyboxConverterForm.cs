@@ -1762,6 +1762,11 @@ Layer0
     g_flRenderOnlyExposureBias ""0.000""
     SkyTexture ""{texturePath}""
 
+    SystemAttributes
+    {{
+        PhysicsSurfaceProperties ""default_silent""
+    }}
+
     VariableState
     {{
         ""Texture""
@@ -1816,12 +1821,26 @@ Layer0
     g_nTextureAddressModeU ""0"" // Wrap
     g_nTextureAddressModeV ""0"" // Wrap
 
+    SystemAttributes
+    {{
+        PhysicsSurfaceProperties ""default_silent""
+    }}
+
     VariableState
     {{
         ""Color""
         {{
         }}
         ""CubeParallax""
+        {{
+        }}
+        ""Fog""
+        {{
+        }}
+        ""Texture""
+        {{
+        }}
+        ""Texture Address Mode""
         {{
         }}
     }}
