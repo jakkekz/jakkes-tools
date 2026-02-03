@@ -544,6 +544,12 @@ namespace CS2KZMappingTools
                 return;
             }
             
+            // Ensure Python dependencies are installed before starting import
+            _statusLabel.Text = "Installing Python dependencies...";
+            _statusLabel.Visible = true;
+            await Task.Run(() => ResourceExtractor.EnsurePythonDependencies());
+            _statusLabel.Visible = false;
+            
             _importInProgress = true;
             _importCompleted = false;
             _vpkLockDetected = false;
@@ -607,7 +613,51 @@ namespace CS2KZMappingTools
                 
                 string sdkContentDir = Path.Combine(_csgoBasefolder!, "sdk_content");
                 
+                // Try to find bundled Python first, fall back to system Python
                 string pythonExe = "python";
+                string basePath = ResourceExtractor.ExtractResources();
+                string bundledPython = Path.Combine(basePath, "python-embed", "python.exe");
+                
+                if (File.Exists(bundledPython))
+                {
+                    pythonExe = bundledPython;
+                    LogMessage($"Using bundled Python: {pythonExe}");
+                }
+                else
+                {
+                    // Check if system Python exists
+                    var pythonCheck = new ProcessStartInfo
+                    {
+                        FileName = "cmd.exe",
+                        Arguments = "/c python --version",
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true
+                    };
+                    
+                    try
+                    {
+                        using var checkProcess = Process.Start(pythonCheck);
+                        checkProcess?.WaitForExit(2000);
+                        
+                        if (checkProcess?.ExitCode != 0)
+                        {
+                            throw new Exception("Python not found");
+                        }
+                        
+                        LogMessage($"Using system Python");
+                    }
+                    catch
+                    {
+                        LogMessage("[ERR] Python not found!");
+                        LogMessage("[ERR] Please install Python 3.11+ from https://www.python.org/downloads/");
+                        LogMessage("[ERR] Make sure to check 'Add Python to PATH' during installation");
+                        _importInProgress = false;
+                        return;
+                    }
+                }
+                
                 string args = $"-u \"{jakkeScript}\" " +
                              $"\"{Path.Combine(_csgoBasefolder!, "csgo")}\" " +
                              $"\"{sdkContentDir}\" " +
