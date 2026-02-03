@@ -34,7 +34,11 @@ def resource_path(relative_path):
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        # When running as script, use the script's directory as base
+        # This file is at: .../scripts/porting/cs2importer.py
+        # We need to go up 2 levels to get to the project root
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        base_path = os.path.abspath(os.path.join(script_dir, '..', '..'))
     return os.path.join(base_path, relative_path)
 
 
