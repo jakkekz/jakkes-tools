@@ -458,18 +458,54 @@ namespace CS2KZMappingTools
                 if (!File.Exists(javaExe))
                 {
                     LogMessage("Downloading BSPSource...");
+                    MainForm.Instance?.LogToConsole("[BSPSource] Downloading from GitHub...");
                     try
                     {
+                        // Remove existing directory if present
+                        if (Directory.Exists(bspsrcDir))
+                            Directory.Delete(bspsrcDir, true);
+                        
+                        MainForm.Instance?.LogToConsole("[BSPSource] Fetching v1.4.7...");
                         using var client = new System.Net.Http.HttpClient();
                         client.Timeout = TimeSpan.FromMinutes(5);
                         var zipBytes = client.GetByteArrayAsync("https://github.com/ata4/bspsrc/releases/download/v1.4.7/bspsrc-windows.zip").Result;
                         
-                        using var zipStream = new System.IO.MemoryStream(zipBytes);
-                        System.IO.Compression.ZipFile.ExtractToDirectory(zipStream, bspsrcDir);
+                        MainForm.Instance?.LogToConsole($"[BSPSource] Downloaded {zipBytes.Length / 1024 / 1024} MB");
+                        
+                        // Extract to temp location first
+                        string extractTemp = Path.Combine(tempDir, "bspsrc_temp");
+                        if (Directory.Exists(extractTemp))
+                            Directory.Delete(extractTemp, true);
+                        
+                        MainForm.Instance?.LogToConsole("[BSPSource] Extracting archive...");
+                        using (var zipStream = new System.IO.MemoryStream(zipBytes))
+                        {
+                            System.IO.Compression.ZipFile.ExtractToDirectory(zipStream, extractTemp);
+                        }
+                        
+                        // Check if zip has a root folder (like bspsrc-windows/) or extracts directly
+                        var extractedDirs = Directory.GetDirectories(extractTemp);
+                        var extractedFiles = Directory.GetFiles(extractTemp);
+                        
+                        MainForm.Instance?.LogToConsole("[BSPSource] Configuring installation...");
+                        if (extractedDirs.Length == 1 && extractedFiles.Length == 0)
+                        {
+                            // Zip has single root folder - move contents up
+                            Directory.Move(extractedDirs[0], bspsrcDir);
+                            Directory.Delete(extractTemp);
+                        }
+                        else
+                        {
+                            // Zip extracts directly - just rename
+                            Directory.Move(extractTemp, bspsrcDir);
+                        }
+                        
                         LogMessage("BSPSource downloaded successfully");
+                        MainForm.Instance?.LogToConsole($"[BSPSource] Installation complete: {bspsrcDir}");
                     }
                     catch (Exception ex)
                     {
+                        MainForm.Instance?.LogToConsole($"[BSPSource] ERROR: {ex.Message}");
                         MessageBox.Show($"Failed to download BSPSource: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return false;
                     }

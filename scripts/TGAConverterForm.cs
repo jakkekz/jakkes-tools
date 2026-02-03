@@ -66,18 +66,29 @@ namespace CS2KZMappingTools
             // Title bar
             var titleBar = CreateTitleBar();
             
+            // Warning label
+            var warningLabel = new Label
+            {
+                Text = "⚠ WARNING: Back up your addon's content folder before using this tool! ⚠",
+                Location = new Point(10, 42),
+                Size = new Size(880, 20),
+                ForeColor = Color.FromArgb(255, 80, 80),
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleCenter
+            };
+            
             // File list
             var listLabel = new Label
             {
                 Text = "Files:",
-                Location = new Point(10, 42),
+                Location = new Point(10, 67),
                 Size = new Size(200, 20),
                 ForeColor = Color.White
             };
             
             _fileListView = new ListView
             {
-                Location = new Point(10, 67),
+                Location = new Point(10, 92),
                 Size = new Size(860, 280),
                 BackColor = Color.FromArgb(45, 45, 45),
                 ForeColor = Color.White,
@@ -102,7 +113,7 @@ namespace CS2KZMappingTools
             _dragDropLabel = new Label
             {
                 Text = "☁ Drag & Drop TGA Files Here ☁\n\nOr click 'Add Files' below",
-                Location = new Point(10, 150),
+                Location = new Point(10, 175),
                 Size = new Size(860, 80),
                 ForeColor = Color.FromArgb(100, 100, 100),
                 TextAlign = ContentAlignment.MiddleCenter,
@@ -116,7 +127,7 @@ namespace CS2KZMappingTools
             _addFilesButton = new Button
             {
                 Text = "Add Files",
-                Location = new Point(10, 357),
+                Location = new Point(10, 382),
                 Size = new Size(120, 35),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(51, 122, 204),
@@ -129,7 +140,7 @@ namespace CS2KZMappingTools
             // Addon ComboBox (next to Add Files button)
             _addonComboBox = new ComboBox
             {
-                Location = new Point(140, 357),
+                Location = new Point(140, 382),
                 Size = new Size(250, 35),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(45, 45, 45),
@@ -140,7 +151,7 @@ namespace CS2KZMappingTools
             _addAddonButton = new Button
             {
                 Text = "Add Addon",
-                Location = new Point(400, 357),
+                Location = new Point(400, 382),
                 Size = new Size(120, 35),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(51, 153, 102),
@@ -154,7 +165,7 @@ namespace CS2KZMappingTools
             var dragDropHint = new Label
             {
                 Text = "or drag and drop",
-                Location = new Point(10, 400),
+                Location = new Point(10, 425),
                 Size = new Size(150, 15),
                 ForeColor = Color.FromArgb(150, 150, 150),
                 Font = new Font("Segoe UI", 8, FontStyle.Italic)
@@ -163,7 +174,7 @@ namespace CS2KZMappingTools
             _removeSelectedButton = new Button
             {
                 Text = "Remove Selected",
-                Location = new Point(530, 357),
+                Location = new Point(530, 382),
                 Size = new Size(140, 35),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(204, 102, 51),
@@ -176,7 +187,7 @@ namespace CS2KZMappingTools
             _clearAllButton = new Button
             {
                 Text = "Clear All",
-                Location = new Point(680, 357),
+                Location = new Point(680, 382),
                 Size = new Size(100, 35),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(178, 51, 51),
@@ -190,7 +201,7 @@ namespace CS2KZMappingTools
             var settingsLabel = new Label
             {
                 Text = "Output Settings:",
-                Location = new Point(10, 492),
+                Location = new Point(10, 517),
                 Size = new Size(200, 20),
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold)
@@ -199,14 +210,14 @@ namespace CS2KZMappingTools
             var formatLabel = new Label
             {
                 Text = "Format:",
-                Location = new Point(10, 522),
+                Location = new Point(10, 547),
                 Size = new Size(80, 20),
                 ForeColor = Color.White
             };
             
             _formatComboBox = new ComboBox
             {
-                Location = new Point(100, 520),
+                Location = new Point(100, 545),
                 Size = new Size(100, 25),
                 DropDownStyle = ComboBoxStyle.DropDownList,
                 BackColor = Color.FromArgb(45, 45, 45),
@@ -219,7 +230,7 @@ namespace CS2KZMappingTools
             var resolutionLabel = new Label
             {
                 Text = "Resolution:",
-                Location = new Point(10, 557),
+                Location = new Point(10, 582),
                 Size = new Size(80, 20),
                 ForeColor = Color.White
             };
@@ -227,7 +238,7 @@ namespace CS2KZMappingTools
             _useOriginalSizeCheckBox = new CheckBox
             {
                 Text = "Use Original Size",
-                Location = new Point(100, 555),
+                Location = new Point(100, 580),
                 Size = new Size(150, 25),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -238,14 +249,14 @@ namespace CS2KZMappingTools
             var widthLabel = new Label
             {
                 Text = "Width:",
-                Location = new Point(10, 592),
+                Location = new Point(10, 617),
                 Size = new Size(80, 20),
                 ForeColor = Color.White
             };
             
             _widthNumeric = new NumericUpDown
             {
-                Location = new Point(100, 590),
+                Location = new Point(100, 615),
                 Size = new Size(100, 25),
                 Minimum = 1,
                 Maximum = 16384,
@@ -259,14 +270,14 @@ namespace CS2KZMappingTools
             var heightLabel = new Label
             {
                 Text = "Height:",
-                Location = new Point(210, 592),
+                Location = new Point(210, 617),
                 Size = new Size(50, 20),
                 ForeColor = Color.White
             };
             
             _heightNumeric = new NumericUpDown
             {
-                Location = new Point(270, 590),
+                Location = new Point(270, 615),
                 Size = new Size(100, 25),
                 Minimum = 1,
                 Maximum = 16384,
@@ -280,7 +291,7 @@ namespace CS2KZMappingTools
             _maintainAspectCheckBox = new CheckBox
             {
                 Text = "Maintain Aspect Ratio",
-                Location = new Point(380, 590),
+                Location = new Point(380, 615),
                 Size = new Size(170, 25),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -292,14 +303,14 @@ namespace CS2KZMappingTools
             var qualityLabelText = new Label
             {
                 Text = "Quality:",
-                Location = new Point(10, 627),
+                Location = new Point(10, 652),
                 Size = new Size(80, 20),
                 ForeColor = Color.White
             };
             
             _qualitySlider = new TrackBar
             {
-                Location = new Point(100, 622),
+                Location = new Point(100, 647),
                 Size = new Size(300, 45),
                 Minimum = 0,
                 Maximum = 100,
@@ -311,7 +322,7 @@ namespace CS2KZMappingTools
             _qualityLabel = new Label
             {
                 Text = "100%",
-                Location = new Point(410, 627),
+                Location = new Point(410, 652),
                 Size = new Size(50, 20),
                 ForeColor = Color.LimeGreen,
                 Font = new Font("Segoe UI", 9, FontStyle.Bold)
@@ -321,7 +332,7 @@ namespace CS2KZMappingTools
             _updateVmatsCheckBox = new CheckBox
             {
                 Text = "Update .vmat files automatically",
-                Location = new Point(10, 665),
+                Location = new Point(10, 690),
                 Size = new Size(250, 25),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -332,7 +343,7 @@ namespace CS2KZMappingTools
             _convertButton = new Button
             {
                 Text = "Convert All",
-                Location = new Point(10, 700),
+                Location = new Point(10, 725),
                 Size = new Size(150, 50),
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(51, 178, 51),
@@ -346,7 +357,7 @@ namespace CS2KZMappingTools
             // Progress bar (next to convert button)
             _progressBar = new ProgressBar
             {
-                Location = new Point(170, 710),
+                Location = new Point(170, 735),
                 Size = new Size(710, 30),
                 Visible = false
             };
@@ -354,7 +365,7 @@ namespace CS2KZMappingTools
             // Progress percentage label (overlay on progress bar)
             _progressPercentLabel = new Label
             {
-                Location = new Point(170, 710),
+                Location = new Point(170, 735),
                 Size = new Size(710, 30),
                 ForeColor = Color.White,
                 BackColor = Color.Transparent,
@@ -367,7 +378,7 @@ namespace CS2KZMappingTools
             // Status label (above progress bar)
             _statusLabel = new Label
             {
-                Location = new Point(170, 685),
+                Location = new Point(170, 710),
                 Size = new Size(710, 20),
                 ForeColor = Color.Yellow,
                 Visible = false,
@@ -378,7 +389,7 @@ namespace CS2KZMappingTools
             _spaceSavingsLabel = new Label
             {
                 Text = "",
-                Location = new Point(170, 745),
+                Location = new Point(170, 770),
                 Size = new Size(710, 20),
                 ForeColor = Color.LimeGreen,
                 Font = new Font("Segoe UI", 10, FontStyle.Bold),
@@ -388,6 +399,7 @@ namespace CS2KZMappingTools
             Controls.AddRange(new Control[]
             {
                 titleBar,
+                warningLabel,
                 listLabel,
                 _fileListView,
                 _dragDropLabel,

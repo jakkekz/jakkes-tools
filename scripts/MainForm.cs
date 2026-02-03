@@ -47,6 +47,9 @@ namespace CS2KZMappingTools
 
     public partial class MainForm : Form
     {
+        // Singleton instance for cross-form access
+        public static MainForm? Instance { get; private set; }
+        
         // Windows API for custom title bar
         private const int WM_NCHITTEST = 0x84;
         private const int WM_NCLBUTTONDOWN = 0xA1;
@@ -138,6 +141,7 @@ namespace CS2KZMappingTools
 
         public MainForm()
         {
+            Instance = this; // Set singleton instance for cross-form access
             InitializeComponent();
             
             _themeManager = ThemeManager.Instance;
@@ -558,6 +562,12 @@ namespace CS2KZMappingTools
             }
         }
         
+        // Public method for other forms to log to console
+        public void LogToConsole(string message)
+        {
+            OnLogMessage(message);
+        }
+        
         private void OnLogMessage(string message)
         {
             if (_consoleTextBox == null) return;
@@ -599,11 +609,6 @@ namespace CS2KZMappingTools
                 var newLines = lines.Skip(lines.Length - 800).ToArray();
                 _consoleTextBox.Lines = newLines;
             }
-        }
-        
-        public void LogToConsole(string message)
-        {
-            OnLogMessage(message);
         }
         
         private void ClearConsole()
