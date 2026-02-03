@@ -756,6 +756,50 @@ viewsettings
                     self.log(f"Failed to download BSPSource: {e}")
                     return False
             
+            # Check/download portable JRE (Amazon Corretto 17)
+            java_exe = os.path.join(bspsrc_dir, "jre", "bin", "java.exe")
+            if not os.path.exists(java_exe):
+                self.log("Downloading Java Runtime Environment...")
+                try:
+                    # Amazon Corretto 17 JRE portable for Windows x64
+                    jre_url = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jre.zip"
+                    
+                    # Download JRE zip
+                    self.log("This may take a moment (JRE is ~40MB)...")
+                    response = urllib.request.urlopen(jre_url, timeout=120)
+                    zip_data = io.BytesIO(response.read())
+                    
+                    # Extract to bspsrc/jre directory
+                    jre_temp_dir = os.path.join(bspsrc_dir, "jre_temp")
+                    os.makedirs(jre_temp_dir, exist_ok=True)
+                    
+                    with zipfile.ZipFile(zip_data) as zip_ref:
+                        zip_ref.extractall(jre_temp_dir)
+                    
+                    # Find the extracted JRE folder (usually named like jdk17.x.x_xx)
+                    extracted_folders = [f for f in os.listdir(jre_temp_dir) if os.path.isdir(os.path.join(jre_temp_dir, f))]
+                    if extracted_folders:
+                        jre_extracted = os.path.join(jre_temp_dir, extracted_folders[0])
+                        jre_final = os.path.join(bspsrc_dir, "jre")
+                        
+                        # Move to final location
+                        if os.path.exists(jre_final):
+                            shutil.rmtree(jre_final)
+                        shutil.move(jre_extracted, jre_final)
+                        
+                        # Clean up temp directory
+                        shutil.rmtree(jre_temp_dir)
+                        
+                        self.log("JRE downloaded and extracted successfully")
+                    else:
+                        self.log("Failed to find JRE in extracted files")
+                        return False
+                        
+                except Exception as e:
+                    self.log(f"Failed to download JRE: {e}")
+                    self.log("Please install Java manually and try again")
+                    return False
+            
 
             # Create a unique temporary directory for BSPSource output
             # Using mkdtemp ensures a unique, safe directory that doesn't conflict
@@ -779,8 +823,12 @@ viewsettings
 
             self.log(f"Extracting {os.path.basename(bsp_path)}...")
             
-            # Call Java directly instead of batch file for better control
-            java_exe = os.path.join(bspsrc_dir, "bin", "java.exe")
+            # Use bundled JRE
+            java_exe = os.path.join(bspsrc_dir, "jre", "bin", "java.exe")
+            
+            if not os.path.exists(java_exe):
+                self.log(f"Error: Java not found at {java_exe}")
+                return False
             
             # Normalize paths for Windows - ensure backslashes
             temp_vmf_normalized = temp_vmf.replace("/", "\\")
