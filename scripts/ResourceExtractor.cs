@@ -49,6 +49,24 @@ namespace CS2KZMappingTools
                         var fileName = relativeName.Substring("icons.".Length);
                         filePath = Path.Combine(_extractPath, "icons", fileName);
                     }
+                    else if (relativeName.StartsWith("python-embed."))
+                    {
+                        // Handle embedded Python files
+                        var fileName = relativeName.Substring("python-embed.".Length);
+                        // Reconstruct nested paths (e.g., python-embed.Lib.site-packages.package.file.py)
+                        var parts = fileName.Split('.');
+                        if (parts.Length >= 2)
+                        {
+                            // Rebuild path with folders
+                            var pathParts = string.Join(Path.DirectorySeparatorChar.ToString(), parts.Take(parts.Length - 1));
+                            var extension = parts.Last();
+                            filePath = Path.Combine(_extractPath, "python-embed", pathParts + "." + extension);
+                        }
+                        else
+                        {
+                            filePath = Path.Combine(_extractPath, "python-embed", fileName);
+                        }
+                    }
                     else if (relativeName.StartsWith("scripts."))
                     {
                         var parts = relativeName.Substring("scripts.".Length).Split('.');
@@ -134,6 +152,16 @@ namespace CS2KZMappingTools
                 
                 string basePath = ExtractResources();
                 string requirementsPath = Path.Combine(basePath, "requirements.txt");
+                
+                // Check for embedded Python first (Complete Edition)
+                string embeddedPythonPath = Path.Combine(basePath, "python-embed", "python.exe");
+                if (File.Exists(embeddedPythonPath))
+                {
+                    logCallback?.Invoke("✓ Using embedded Python (Complete Edition)");
+                    logCallback?.Invoke($"Python location: {embeddedPythonPath}");
+                    _dependenciesInstalled = true;
+                    return "Success";
+                }
 
                 // Check if requirements.txt was extracted
                 if (!File.Exists(requirementsPath))
@@ -149,7 +177,7 @@ colorama
                     logCallback?.Invoke("Created requirements.txt");
                 }
 
-                // Check if Python is available
+                // Check if system Python is available (Lite Edition)
                 var pythonCheck = new ProcessStartInfo
                 {
                     FileName = "python",
@@ -173,7 +201,7 @@ colorama
                             return error;
                         }
                         string version = checkProcess.StandardOutput.ReadToEnd().Trim();
-                        logCallback?.Invoke($"Found {version}");
+                        logCallback?.Invoke($"Found system {version}");
                     }
                 }
                 catch (Exception ex)

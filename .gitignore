@@ -52,6 +52,8 @@ Thumbs.db
 # Local build scripts
 build-*.ps1
 publish/
+python-embed/
+python-embed.zip
 ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/

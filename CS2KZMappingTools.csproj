@@ -44,6 +44,7 @@
     <EmbeddedResource Include="utils\**\*" />
     <EmbeddedResource Include="fonts\**\*" />
     <EmbeddedResource Include="requirements.txt" />
+    <EmbeddedResource Include="python-embed\**\*" Condition="Exists('python-embed')" />
   </ItemGroup>
 
   <ItemGroup>

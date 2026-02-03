@@ -1,5 +1,7 @@
 <img width="825" height="80" alt="Image" src="https://github.com/user-attachments/assets/7a22082f-64aa-4e91-89c4-6df19d9d00e8" />
-*I recommend backing up content folder before using this tool.*
+
+*I recommend backing up your content folder before using this tool.*
+
 # A collection of CS2(KZ) mapping tools including:
 
 - **Mapping, Listen, Dedicated Server, Insecure** (tweaked [zer0k.z tools](https://github.com/zer0k-z/cs2kz-mapping))

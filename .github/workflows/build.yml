@@ -46,80 +46,82 @@ jobs:
         echo "tag=$tag" >> $env:GITHUB_OUTPUT
         echo "sha=$shortSha" >> $env:GITHUB_OUTPUT
     
-    - name: Publish Lite Edition (requires .NET 8)
+    - name: Publish Lite Edition (requires .NET 8 + Python)
       run: dotnet publish CS2KZMappingTools.csproj -c Release -p:PublishSingleFile=true -p:SelfContained=false -p:RuntimeIdentifier=win-x64 -p:EnableCompressionInSingleFile=false --no-restore -o publish/lite
     
-    - name: Setup Python
+    - name: Setup Python for Complete Edition
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
     
-    - name: Install Python Dependencies
+    - name: Prepare Python Embedded Bundle
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
-    
-    - name: Bundle Python Scripts with PyInstaller
-      run: |
-        # Create a minimal Python launcher that includes all dependencies
-        pyinstaller --onefile --add-data "scripts;scripts" --add-data "utils;utils" --hidden-import=vpk --name python-bundle scripts/porting/import_map_community_jakke.py
-        # Copy the bundled executable to publish folder
-        New-Item -ItemType Directory -Force -Path "publish/complete/python"
-        Copy-Item -Path "dist/python-bundle.exe" -Destination "publish/complete/python/"
-    
-    - name: Publish Complete Edition (with .NET + Python embedded)
-      run: |
-        # First publish self-contained .NET app
-        dotnet publish CS2KZMappingTools.csproj -c Release -p:PublishSingleFile=true -p:SelfContained=true -p:RuntimeIdentifier=win-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true --no-restore -o publish/complete
-        
-        # Copy Python scripts and dependencies
-        Copy-Item -Path "scripts" -Destination "publish/complete/scripts" -Recurse -Force
-        Copy-Item -Path "utils" -Destination "publish/complete/utils" -Recurse -Force
-        Copy-Item -Path "requirements.txt" -Destination "publish/complete/" -Force
-        
-        # Download embedded Python (no installation required)
+        # Download embedded Python
+        Write-Host "Downloading Python 3.11.8 embedded..."
         Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.11.8/python-3.11.8-embed-amd64.zip" -OutFile "python-embed.zip"
-        Expand-Archive -Path "python-embed.zip" -DestinationPath "publish/complete/python" -Force
         
-        # Enable site-packages in embedded Python by modifying ._pth file
-        $pthFile = "publish/complete/python/python311._pth"
+        # Extract to temp location
+        Write-Host "Extracting Python..."
+        New-Item -ItemType Directory -Force -Path "python-temp"
+        Expand-Archive -Path "python-embed.zip" -DestinationPath "python-temp" -Force
+        
+        # Enable site-packages
+        $pthFile = "python-temp/python311._pth"
         if (Test-Path $pthFile) {
+            Write-Host "Configuring Python paths..."
             $content = Get-Content $pthFile
             $content = $content -replace '#import site', 'import site'
+            $content += "`nLib"
             $content += "`nLib/site-packages"
             Set-Content -Path $pthFile -Value $content
         }
         
-        # Download get-pip.py
-        Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "publish/complete/python/get-pip.py"
+        # Download and install pip
+        Write-Host "Installing pip..."
+        Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile "python-temp/get-pip.py"
+        & "python-temp/python.exe" "python-temp/get-pip.py" --no-warn-script-location
         
-        # Install pip
-        & "publish/complete/python/python.exe" "publish/complete/python/get-pip.py" --no-warn-script-location
+        # Install required packages
+        Write-Host "Installing Python dependencies..."
+        & "python-temp/python.exe" -m pip install -r requirements.txt --target "python-temp/Lib/site-packages" --no-warn-script-location
         
-        # Install required packages directly to embedded Python
-        & "publish/complete/python/python.exe" -m pip install -r requirements.txt --target "publish/complete/python/Lib/site-packages" --no-warn-script-location
+        # Clean up unnecessary files to reduce size
+        Write-Host "Cleaning up..."
+        Remove-Item -Path "python-temp/get-pip.py" -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "python-temp/Lib/site-packages/pip*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "python-temp/Lib/site-packages/setuptools*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "python-temp/Lib/site-packages/*.dist-info" -Recurse -Force -ErrorAction SilentlyContinue
+        
+        # Create python-embed directory in project root for embedding
+        New-Item -ItemType Directory -Force -Path "python-embed"
+        Copy-Item -Path "python-temp/*" -Destination "python-embed/" -Recurse -Force
+        
+        Write-Host "Python bundle prepared successfully"
+    
+    - name: Publish Complete Edition (with .NET + Python embedded)
+      run: |
+        Write-Host "Building Complete Edition with embedded .NET Runtime + Python..."
+        dotnet publish CS2KZMappingTools.csproj -c Release -p:PublishSingleFile=true -p:SelfContained=true -p:RuntimeIdentifier=win-x64 -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true --no-restore -o publish/complete
+        Write-Host "Complete Edition built successfully"
     
     - name: Rename Artifacts
       run: |
         Rename-Item -Path "publish/lite/CS2KZMappingTools.exe" -NewName "jakkes-tools-Lite.exe"
         Rename-Item -Path "publish/complete/CS2KZMappingTools.exe" -NewName "jakkes-tools-Complete.exe"
-    
-    - name: Create Complete Edition ZIP
-      run: |
-        Compress-Archive -Path "publish/complete/*" -DestinationPath "jakkes-tools-Complete.zip" -Force
+        Write-Host "Lite Edition: $('{0:N2}' -f ((Get-Item 'publish/lite/jakkes-tools-Lite.exe').Length / 1MB)) MB"
+        Write-Host "Complete Edition: $('{0:N2}' -f ((Get-Item 'publish/complete/jakkes-tools-Complete.exe').Length / 1MB)) MB"
     
     - name: Upload Lite Edition Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: jakkes-tools-lite
+        name: jakkes-tools-Lite
         path: publish/lite/jakkes-tools-Lite.exe
     
     - name: Upload Complete Edition Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: jakkes-tools-complete
-        path: jakkes-tools-Complete.zip
+        name: jakkes-tools-Complete
+        path: publish/complete/jakkes-tools-Complete.exe
     
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -128,29 +130,31 @@ jobs:
         tag_name: ${{ steps.version.outputs.tag }}
         name: Release ${{ steps.version.outputs.tag }}
         body: |
-          Automated release from commit ${{ steps.version.outputs.sha }}
+          ## Automated Release
+          Build ${{ steps.version.outputs.version }} from commit ${{ steps.version.outputs.sha }}
           
-          ## Changes
+          ---
+          
+          ## 📥 Downloads
+          
+          ### jakkes-tools-Complete.exe ⭐ **Recommended**
+          - ✅ **Fully portable** - No installation needed
+          - ✅ Includes .NET 8 Runtime
+          - ✅ Includes Python 3.11 embedded
+          - ✅ All dependencies included
+          - 🚀 Just download and run!
+          
+          ### jakkes-tools-Lite.exe
+          - ⚠️ Requires .NET 8 Desktop Runtime ([Download](https://dotnet.microsoft.com/download/dotnet/8.0))
+          - ⚠️ Requires Python 3.11+ installed
+          - 💾 Smallest download size
+          
+          ---
+          
+          ## 📝 Changes
           ${{ github.event.head_commit.message }}
-          
-          ## Downloads
-          
-          **jakkes-tools-Complete.zip (Fully Portable - Recommended)**
-          - Includes .NET Runtime + Python embedded - completely portable, no installations required
-          - Extract and run anywhere, no dependencies needed
-          
-          **jakkes-tools.exe (Smaller, requires Python)**
-          - Includes .NET Runtime embedded
-          - Requires Python 3.11+ with dependencies from requirements.txt
-          
-          **jakkes-tools-Lite.exe (Smallest, requires both .NET + Python)**
-          - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
-          - Largest file size (~100MB)
-          
-          **jakkes-tools-Lite.exe (Smallest)**
-          - Requires .NET 8 Desktop Runtime: https://dotnet.microsoft.com/download/dotnet/8.0
-          - Requires Python 3.11+ (dependencies auto-installed on first run)
-          - Smallest file size (~2MB)
         files: |
+          publish/complete/jakkes-tools-Complete.exe
+          publish/lite/jakkes-tools-Lite.exe
           jakkes-tools-Complete.zip
           publish/lite
