@@ -1548,7 +1548,11 @@ namespace CS2KZMappingTools
                 string absOutputDir = Path.GetFullPath(outputDir);
 
                 // Get VTFCmd.exe directory to ensure VTFLib.dll is accessible
-                string vtfCmdDir = Path.GetDirectoryName(_vtfCmdPath);
+                string? vtfCmdDir = Path.GetDirectoryName(_vtfCmdPath);
+                if (vtfCmdDir == null)
+                {
+                    return (false, "Invalid VTFCmd path");
+                }
                 string vtfLibPath = Path.Combine(vtfCmdDir, "VTFLib.dll");
 
                 if (!File.Exists(vtfLibPath))
@@ -1702,7 +1706,7 @@ namespace CS2KZMappingTools
             }
         }
 
-        private string ConvertPngToVtf(string pngPath, string outputDir, string skyboxName)
+        private string? ConvertPngToVtf(string pngPath, string outputDir, string skyboxName)
         {
             if (string.IsNullOrEmpty(_vtfCmdPath) || !File.Exists(_vtfCmdPath)) return null;
 

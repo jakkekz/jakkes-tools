@@ -44,7 +44,6 @@ namespace CS2KZMappingTools
         private string _vmfDefaultPath = "C:\\";
         
         private bool _importInProgress;
-        private bool _importCompleted;
         private bool _heightExpanded;
         private int _totalMaterials;
         private int _importedMaterials;
@@ -52,9 +51,7 @@ namespace CS2KZMappingTools
         private int _importedModels;
         private int _totalVmaps;
         private int _importedVmaps;
-        private bool _vmapDone;
         private string _currentStage = "";
-        private int _failedCount;
         private bool _vpkLockDetected;
         private bool _vmfStructureError;
         
@@ -491,6 +488,7 @@ namespace CS2KZMappingTools
                 
                 // Move files to appropriate locations
                 string baseDir = _csgoBasefolder.Replace("/", "\\");
+                string csgoDir = Path.Combine(baseDir, "csgo");
                 string sdkContentMaps = Path.Combine(baseDir, "sdk_content", "maps");
                 Directory.CreateDirectory(sdkContentMaps);
                 
@@ -506,6 +504,57 @@ namespace CS2KZMappingTools
                     string finalBsp = Path.Combine(sdkContentMaps, Path.GetFileName(bspPath));
                     File.Copy(bspPath, finalBsp, true);
                     
+                    // Extract embedded materials and models from BSPSource output
+                    // BSPSource extracts to temp_output_dir/mapname/ folder
+                    if (Directory.Exists(extractedFolder))
+                    {
+                        // Handle extracted models
+                        string tempModels = Path.Combine(extractedFolder, "models");
+                        if (Directory.Exists(tempModels))
+                        {
+                            LogMessage("Extracting embedded models...");
+                            string csgoModels = Path.Combine(csgoDir, "models");
+                            string mapsModels = Path.Combine(sdkContentMaps, "models");
+                            Directory.CreateDirectory(csgoModels);
+                            Directory.CreateDirectory(mapsModels);
+                            
+                            int modelCount = CopyDirectoryRecursive(tempModels, csgoModels, mapsModels);
+                            LogMessage($"✓ Extracted {modelCount} model files");
+                        }
+                        
+                        // Handle extracted materials
+                        string tempMaterials = Path.Combine(extractedFolder, "materials");
+                        if (Directory.Exists(tempMaterials))
+                        {
+                            LogMessage("Extracting embedded materials...");
+                            string csgoMaterials = Path.Combine(csgoDir, "materials");
+                            string mapsMaterials = Path.Combine(sdkContentMaps, "materials");
+                            Directory.CreateDirectory(csgoMaterials);
+                            Directory.CreateDirectory(mapsMaterials);
+                            
+                            var extractedVmts = new List<string>();
+                            int materialCount = CopyDirectoryRecursive(tempMaterials, csgoMaterials, mapsMaterials, extractedVmts);
+                            LogMessage($"✓ Extracted {materialCount} material files");
+                            
+                            // Create _embedded_refs.txt for import script
+                            if (extractedVmts.Count > 0)
+                            {
+                                string refsFile = Path.Combine(sdkContentMaps, $"{mapBaseName}_embedded_refs.txt");
+                                using (var writer = new StreamWriter(refsFile))
+                                {
+                                    writer.WriteLine("importfilelist");
+                                    writer.WriteLine("{");
+                                    foreach (var vmt in extractedVmts)
+                                    {
+                                        writer.WriteLine($"\t\"file\" \"materials/{vmt}.vmt\"");
+                                    }
+                                    writer.WriteLine("}");
+                                }
+                                LogMessage($"✓ Created refs file with {extractedVmts.Count} embedded materials");
+                            }
+                        }
+                    }
+                    
                     // Clean up
                     try { Directory.Delete(tempOutputDir, true); } catch { }
                     
@@ -519,6 +568,50 @@ namespace CS2KZMappingTools
                 MessageBox.Show($"Error during extraction: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
+        }
+        
+        private int CopyDirectoryRecursive(string sourceDir, string destDir1, string destDir2, List<string>? vmtList = null)
+        {
+            int fileCount = 0;
+            
+            void CopyFilesRecursive(string srcDir, string relativePath = "")
+            {
+                foreach (var file in Directory.GetFiles(srcDir))
+                {
+                    string fileName = Path.GetFileName(file);
+                    string relPath = string.IsNullOrEmpty(relativePath) ? fileName : Path.Combine(relativePath, fileName);
+                    
+                    // Copy to both destination directories
+                    string dest1Path = Path.Combine(destDir1, relPath);
+                    string dest2Path = Path.Combine(destDir2, relPath);
+                    
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest1Path)!);
+                    Directory.CreateDirectory(Path.GetDirectoryName(dest2Path)!);
+                    
+                    File.Copy(file, dest1Path, true);
+                    File.Copy(file, dest2Path, true);
+                    fileCount++;
+                    
+                    // Track VMT files for refs list
+                    if (vmtList != null && fileName.EndsWith(".vmt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Convert to material path (remove .vmt and use forward slashes)
+                        string matPath = relPath.Replace('\\', '/');
+                        matPath = matPath.Substring(0, matPath.Length - 4); // Remove .vmt extension
+                        vmtList.Add(matPath);
+                    }
+                }
+                
+                foreach (var dir in Directory.GetDirectories(srcDir))
+                {
+                    string dirName = Path.GetFileName(dir);
+                    string newRelPath = string.IsNullOrEmpty(relativePath) ? dirName : Path.Combine(relativePath, dirName);
+                    CopyFilesRecursive(dir, newRelPath);
+                }
+            }
+            
+            CopyFilesRecursive(sourceDir);
+            return fileCount;
         }
         
         private async void GoButton_Click(object? sender, EventArgs e)
@@ -551,7 +644,6 @@ namespace CS2KZMappingTools
             _statusLabel.Visible = false;
             
             _importInProgress = true;
-            _importCompleted = false;
             _vpkLockDetected = false;
             _vmfStructureError = false;
             _heightExpanded = false;
@@ -563,8 +655,6 @@ namespace CS2KZMappingTools
             _importedModels = 0;
             _totalVmaps = 0;
             _importedVmaps = 0;
-            _vmapDone = false;
-            _failedCount = 0;
             _currentStage = "Starting import...";
             _logBuilder.Clear();
             
@@ -615,7 +705,7 @@ namespace CS2KZMappingTools
                 
                 // Try to find bundled Python first, fall back to system Python
                 string pythonExe = "python";
-                string basePath = ResourceExtractor.ExtractResources();
+                basePath = ResourceExtractor.ExtractResources(); // Reuse existing basePath variable
                 string bundledPython = Path.Combine(basePath, "python-embed", "python.exe");
                 
                 if (File.Exists(bundledPython))
@@ -785,7 +875,6 @@ namespace CS2KZMappingTools
                 Invoke((MethodInvoker)delegate
                 {
                     _importInProgress = false;
-                    _importCompleted = true;
                     _goButton.Enabled = true;
                     _statusLabel.Text = "Complete!";
                     _statusLabel.ForeColor = Color.LimeGreen;
@@ -836,6 +925,30 @@ namespace CS2KZMappingTools
                 message.Contains("CVMFtoVMAP: Missing a required top-level key"))
             {
                 _vmfStructureError = true;
+            }
+            
+            // Check for duplicate entity name conflict
+            if (message.Contains("FATAL ERROR: Conversion of entity I/O") && 
+                message.Contains("sharing target name"))
+            {
+                // Extract entity name from error message
+                var match = Regex.Match(message, @"sharing target name ""([^""]+)""");
+                string entityName = match.Success ? match.Groups[1].Value : "unknown";
+                
+                Invoke((MethodInvoker)delegate
+                {
+                    MessageBox.Show(
+                        $"The VMF has duplicate entities with the same name: \"{entityName}\"\n\n" +
+                        $"To fix this:\n" +
+                        $"1. Open the VMF in CS:GO Hammer (in sdk_content/maps/)\n" +
+                        $"2. Find entities named \"{entityName}\" (use Ctrl+Shift+F)\n" +
+                        $"3. Rename one of them (e.g., \"{entityName}2\")\n" +
+                        $"4. Save and import again",
+                        "Duplicate Entity Name Error",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning
+                    );
+                });
             }
             
             // Parse material count

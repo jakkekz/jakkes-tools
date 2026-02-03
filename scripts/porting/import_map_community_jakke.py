@@ -927,6 +927,9 @@ try:
 	# Import all models referenced in VMF from pak01
 	try:
 		ImportVMFModels(vmf_file_path, s1gamecsgo, s2addon, s2contentcsgoimported, errorCallback)
+	except SystemExit:
+		# Catch sys.exit() calls from failed imports to prevent aborting the whole script
+		print("Warning: Some models failed to import but continuing with post-processing...")
 	except Exception as e:
 		print(f"Warning: VMF model import failed: {e}")
 		import traceback
