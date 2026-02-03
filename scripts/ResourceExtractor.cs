@@ -142,6 +142,7 @@ PyOpenGL
 vdf
 Pillow
 numpy
+colorama
 ");
                 }
 

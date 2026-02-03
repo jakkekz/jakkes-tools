@@ -71,6 +71,9 @@ namespace CS2KZMappingTools
             InitializeComponent();
             ApplyTheme();
             
+            // Ensure Python dependencies are installed
+            Task.Run(() => ResourceExtractor.EnsurePythonDependencies());
+            
             LoadConfig();
             AutoDetectCS2();
         }
@@ -923,7 +926,13 @@ namespace CS2KZMappingTools
                 string addonPath = Path.Combine(_csgoBasefolder, "content", "csgo_addons", _addonNameTextBox.Text);
                 if (Directory.Exists(addonPath))
                 {
-                    Process.Start("explorer.exe", addonPath);
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = addonPath,
+                        UseShellExecute = true,
+                        Verb = "open"
+                    };
+                    Process.Start(startInfo);
                 }
                 else
                 {
