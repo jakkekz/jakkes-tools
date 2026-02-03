@@ -17,11 +17,13 @@ import tempfile
 sys.stdout.reconfigure(line_buffering=True) if hasattr(sys.stdout, 'reconfigure') else None
 sys.stderr.reconfigure(line_buffering=True) if hasattr(sys.stderr, 'reconfigure') else None
 
-# Add the current working directory to Python path so we can import utils
-# This script is meant to be run from CS2's import_scripts directory
-cwd = os.getcwd()
-if cwd not in sys.path:
-    sys.path.insert(0, cwd)
+# Add the script's parent directory to Python path so we can import utils
+# This ensures we use OUR utils folder, not CS2's utils folder
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Go up 2 levels from scripts/porting/ to get to project root where utils is
+project_root = os.path.abspath(os.path.join(script_dir, '..', '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from utils import utlc as utl
 
