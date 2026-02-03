@@ -734,70 +734,57 @@ viewsettings
             cs2kz_temp = os.path.join(tempfile.gettempdir(), ".cs2kz-mapping-tools")
             os.makedirs(cs2kz_temp, exist_ok=True)
             bspsrc_dir = os.path.join(cs2kz_temp, "bspsrc")
-            bspsrc_bat = os.path.join(bspsrc_dir, "bspsrc.bat")
+            java_exe = os.path.join(bspsrc_dir, "bin", "java.exe")
             
-            if not os.path.exists(bspsrc_bat):
-                self.log("Downloading BSPSource...")
+            # Check if BSPSource needs to be downloaded or re-downloaded
+            needs_download = False
+            if not os.path.exists(bspsrc_dir):
+                needs_download = True
+                self.log("BSPSource not found, downloading...")
+            elif not os.path.exists(java_exe):
+                # BSPSource exists but Java is missing - corrupted download
+                self.log("BSPSource installation incomplete (missing Java), re-downloading...")
                 try:
-                    # Download latest BSPSource Windows release
+                    shutil.rmtree(bspsrc_dir)
+                except Exception as e:
+                    self.log(f"Warning: Could not remove old BSPSource directory: {e}")
+                needs_download = True
+            
+            if needs_download:
+                try:
+                    # Download BSPSource Windows release (includes bundled JRE)
                     bspsrc_url = "https://github.com/ata4/bspsrc/releases/download/v1.4.7/bspsrc-windows.zip"
+                    self.log("Downloading BSPSource v1.4.7 with bundled Java (~50MB)...")
+                    self.log("This is a one-time download, please wait...")
                     
                     # Download zip to memory
-                    response = urllib.request.urlopen(bspsrc_url)
+                    response = urllib.request.urlopen(bspsrc_url, timeout=120)
                     zip_data = io.BytesIO(response.read())
                     
                     # Extract zip to temp folder
                     os.makedirs(bspsrc_dir, exist_ok=True)
+                    self.log("Extracting BSPSource files...")
                     with zipfile.ZipFile(zip_data) as zip_ref:
                         zip_ref.extractall(bspsrc_dir)
                     
-                    self.log("BSPSource downloaded and extracted successfully")
+                    # Verify extraction was successful
+                    if not os.path.exists(java_exe):
+                        self.log("ERROR: BSPSource extraction failed - java.exe not found")
+                        self.log(f"Expected location: {java_exe}")
+                        self.log("This could be caused by:")
+                        self.log("  1. Antivirus blocking the extraction")
+                        self.log("  2. Insufficient disk space")
+                        self.log("  3. Permission issues in temp directory")
+                        self.log("")
+                        self.log("Please try:")
+                        self.log(f"  - Check antivirus logs and whitelist: {bspsrc_dir}")
+                        self.log(f"  - Manually delete folder and retry: {bspsrc_dir}")
+                        return False
+                    
+                    self.log("✓ BSPSource downloaded and extracted successfully")
                 except Exception as e:
                     self.log(f"Failed to download BSPSource: {e}")
-                    return False
-            
-            # Check/download portable JRE (Amazon Corretto 17)
-            java_exe = os.path.join(bspsrc_dir, "jre", "bin", "java.exe")
-            if not os.path.exists(java_exe):
-                self.log("Downloading Java Runtime Environment...")
-                try:
-                    # Amazon Corretto 17 JRE portable for Windows x64
-                    jre_url = "https://corretto.aws/downloads/latest/amazon-corretto-17-x64-windows-jre.zip"
-                    
-                    # Download JRE zip
-                    self.log("This may take a moment (JRE is ~40MB)...")
-                    response = urllib.request.urlopen(jre_url, timeout=120)
-                    zip_data = io.BytesIO(response.read())
-                    
-                    # Extract to bspsrc/jre directory
-                    jre_temp_dir = os.path.join(bspsrc_dir, "jre_temp")
-                    os.makedirs(jre_temp_dir, exist_ok=True)
-                    
-                    with zipfile.ZipFile(zip_data) as zip_ref:
-                        zip_ref.extractall(jre_temp_dir)
-                    
-                    # Find the extracted JRE folder (usually named like jdk17.x.x_xx)
-                    extracted_folders = [f for f in os.listdir(jre_temp_dir) if os.path.isdir(os.path.join(jre_temp_dir, f))]
-                    if extracted_folders:
-                        jre_extracted = os.path.join(jre_temp_dir, extracted_folders[0])
-                        jre_final = os.path.join(bspsrc_dir, "jre")
-                        
-                        # Move to final location
-                        if os.path.exists(jre_final):
-                            shutil.rmtree(jre_final)
-                        shutil.move(jre_extracted, jre_final)
-                        
-                        # Clean up temp directory
-                        shutil.rmtree(jre_temp_dir)
-                        
-                        self.log("JRE downloaded and extracted successfully")
-                    else:
-                        self.log("Failed to find JRE in extracted files")
-                        return False
-                        
-                except Exception as e:
-                    self.log(f"Failed to download JRE: {e}")
-                    self.log("Please install Java manually and try again")
+                    self.log("Please check your internet connection and try again")
                     return False
             
 
@@ -823,11 +810,13 @@ viewsettings
 
             self.log(f"Extracting {os.path.basename(bsp_path)}...")
             
-            # Use bundled JRE
-            java_exe = os.path.join(bspsrc_dir, "jre", "bin", "java.exe")
-            
+            # Use bundled JRE from BSPSource (should be at bin/java.exe)
             if not os.path.exists(java_exe):
-                self.log(f"Error: Java not found at {java_exe}")
+                self.log(f"ERROR: Java not found at {java_exe}")
+                self.log("BSPSource v1.4.7 should include a bundled JRE, but it's missing.")
+                self.log("This likely means the BSPSource download was corrupted or incomplete.")
+                self.log(f"Please delete the folder: {bspsrc_dir}")
+                self.log("Then try again to re-download BSPSource.")
                 return False
             
             # Normalize paths for Windows - ensure backslashes
