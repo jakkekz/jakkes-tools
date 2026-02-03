@@ -722,7 +722,12 @@ namespace CS2KZMappingTools
             {
                 string result = ResourceExtractor.EnsurePythonDependencies(msg =>
                 {
-                    Invoke((MethodInvoker)delegate { LogMessage(msg); });
+                    Invoke((MethodInvoker)delegate 
+                    { 
+                        LogMessage(msg);
+                        // Also log to main window console
+                        MainForm.Instance?.LogToConsole($"[CS2 Importer] {msg}");
+                    });
                 });
                 
                 if (result != "Success" && result != "Dependencies already installed")
@@ -733,6 +738,7 @@ namespace CS2KZMappingTools
                         _goButton.Enabled = true;
                         _statusLabel.Text = "Failed - Python setup error";
                         _statusLabel.ForeColor = Color.Red;
+                        MainForm.Instance?.LogToConsole($"[CS2 Importer] Error: {result}");
                         MessageBox.Show(
                             $"Failed to install Python dependencies:\n\n{result}\n\n" +
                             "Please make sure Python 3.11+ is installed and added to PATH.",

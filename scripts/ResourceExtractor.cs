@@ -12,7 +12,7 @@ namespace CS2KZMappingTools
         private static bool _extracted = false;
         private static bool _dependenciesInstalled = false;
 
-        public static string ExtractResources()
+        public static string ExtractResources(Action<string>? logCallback = null)
         {
             if (_extractPath != null && _extracted)
                 return _extractPath;
@@ -24,7 +24,28 @@ namespace CS2KZMappingTools
 
             var assembly = Assembly.GetExecutingAssembly();
             var resourceNames = assembly.GetManifestResourceNames();
+            
+            // Log python-embed resources for debugging
+            var pythonEmbedResources = resourceNames.Where(r => r.Contains("python-embed")).ToList();
+            if (pythonEmbedResources.Count > 0)
+            {
+                logCallback?.Invoke($"Found {pythonEmbedResources.Count} python-embed resources in assembly");
+                // Log first few for debugging
+                foreach (var res in pythonEmbedResources.Take(3))
+                {
+                    logCallback?.Invoke($"  Example: {res}");
+                }
+                if (pythonEmbedResources.Count > 3)
+                {
+                    logCallback?.Invoke($"  ... and {pythonEmbedResources.Count - 3} more");
+                }
+            }
+            else
+            {
+                logCallback?.Invoke("No python-embed resources found (Lite edition)");
+            }
 
+            int pythonFilesExtracted = 0;
             foreach (var resourceName in resourceNames)
             {
                 try
@@ -52,19 +73,26 @@ namespace CS2KZMappingTools
                     else if (relativeName.StartsWith("python-embed."))
                     {
                         // Handle embedded Python files
+                        // Resource name format: CS2KZMappingTools.python-embed.folder.file.ext
+                        // We need to convert dots back to directory separators, but preserve file extension
                         var fileName = relativeName.Substring("python-embed.".Length);
-                        // Reconstruct nested paths (e.g., python-embed.Lib.site-packages.package.file.py)
-                        var parts = fileName.Split('.');
-                        if (parts.Length >= 2)
+                        
+                        // Find the last dot (file extension)
+                        int lastDotIndex = fileName.LastIndexOf('.');
+                        if (lastDotIndex > 0)
                         {
-                            // Rebuild path with folders
-                            var pathParts = string.Join(Path.DirectorySeparatorChar.ToString(), parts.Take(parts.Length - 1));
-                            var extension = parts.Last();
-                            filePath = Path.Combine(_extractPath, "python-embed", pathParts + "." + extension);
+                            string pathWithoutExt = fileName.Substring(0, lastDotIndex);
+                            string extension = fileName.Substring(lastDotIndex);
+                            
+                            // Convert remaining dots to directory separators
+                            string pathPart = pathWithoutExt.Replace('.', Path.DirectorySeparatorChar);
+                            filePath = Path.Combine(_extractPath, "python-embed", pathPart + extension);
                         }
                         else
                         {
-                            filePath = Path.Combine(_extractPath, "python-embed", fileName);
+                            // No extension, treat whole thing as path
+                            string pathPart = fileName.Replace('.', Path.DirectorySeparatorChar);
+                            filePath = Path.Combine(_extractPath, "python-embed", pathPart);
                         }
                     }
                     else if (relativeName.StartsWith("scripts."))
@@ -129,12 +157,23 @@ namespace CS2KZMappingTools
                     {
                         using var fileStream = File.Create(filePath);
                         stream.CopyTo(fileStream);
+                        
+                        // Count python-embed file extraction
+                        if (resourceName.Contains("python-embed"))
+                        {
+                            pythonFilesExtracted++;
+                        }
                     }
                 }
                 catch
                 {
                     // Continue on error
                 }
+            }
+            
+            if (pythonFilesExtracted > 0)
+            {
+                logCallback?.Invoke($"✓ Extracted {pythonFilesExtracted} embedded Python files");
             }
 
             _extracted = true;
@@ -148,9 +187,9 @@ namespace CS2KZMappingTools
 
             try
             {
-                logCallback?.Invoke("Checking Python dependencies...");
+                logCallback?.Invoke("Extracting embedded resources...");
                 
-                string basePath = ExtractResources();
+                string basePath = ExtractResources(logCallback);
                 string requirementsPath = Path.Combine(basePath, "requirements.txt");
                 
                 // Check for embedded Python first (Complete Edition)
@@ -164,15 +203,6 @@ namespace CS2KZMappingTools
                     .Where(r => r.Contains("python-embed"))
                     .ToList();
                 
-                if (pythonResources.Any())
-                {
-                    logCallback?.Invoke($"Found {pythonResources.Count} python-embed resources in assembly");
-                }
-                else
-                {
-                    logCallback?.Invoke("No python-embed resources found - this is the Lite edition");
-                }
-                
                 if (File.Exists(embeddedPythonPath))
                 {
                     logCallback?.Invoke("✓ Using embedded Python (Complete Edition)");
@@ -182,8 +212,8 @@ namespace CS2KZMappingTools
                 }
                 else if (pythonResources.Any())
                 {
-                    logCallback?.Invoke("[WARN] Python resources found but python.exe not extracted properly");
-                    logCallback?.Invoke("[WARN] This may be a build issue. Falling back to system Python...");
+                    logCallback?.Invoke($"⚠ Warning: Found {pythonResources.Count} python-embed resources but python.exe not extracted");
+                    logCallback?.Invoke($"⚠ This may be a build issue. Falling back to system Python...");
                 }
                 else
                 {
