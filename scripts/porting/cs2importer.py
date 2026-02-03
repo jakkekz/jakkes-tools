@@ -1177,8 +1177,9 @@ viewsettings
 
             cd = os.path.join(self.csgo_basefolder, 'game', 'csgo', 'import_scripts').replace("/", "\\")
             
-            # Get the path to our custom import script using resource_path for PyInstaller compatibility
-            jakke_script = resource_path(os.path.join('scripts', 'porting', 'import_map_community_jakke.py')).replace("/", "\\")
+            # Get the path to import_map_community_jakke.py (same directory as this script)
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            jakke_script = os.path.join(script_dir, 'import_map_community_jakke.py').replace("/", "\\")
             
             # Build command using our custom script with unbuffered output
             # Pass sdk_content as the content directory (where VMF and BSP are located)
