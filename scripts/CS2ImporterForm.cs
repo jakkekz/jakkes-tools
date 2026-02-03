@@ -453,12 +453,26 @@ namespace CS2KZMappingTools
                 string tempDir = Path.Combine(Path.GetTempPath(), ".cs2kz-mapping-tools");
                 Directory.CreateDirectory(tempDir);
                 string bspsrcDir = Path.Combine(tempDir, "bspsrc");
-                string bspsrcBat = Path.Combine(bspsrcDir, "bspsrc.bat");
+                string javaExe = Path.Combine(bspsrcDir, "bin", "java.exe");
                 
-                if (!File.Exists(bspsrcBat))
+                if (!File.Exists(javaExe))
                 {
-                    // Download BSPSource (simplified - you'd need full implementation)
-                    // For now, assume it exists
+                    LogMessage("Downloading BSPSource...");
+                    try
+                    {
+                        using var client = new System.Net.Http.HttpClient();
+                        client.Timeout = TimeSpan.FromMinutes(5);
+                        var zipBytes = client.GetByteArrayAsync("https://github.com/ata4/bspsrc/releases/download/v1.4.7/bspsrc-windows.zip").Result;
+                        
+                        using var zipStream = new System.IO.MemoryStream(zipBytes);
+                        System.IO.Compression.ZipFile.ExtractToDirectory(zipStream, bspsrcDir);
+                        LogMessage("BSPSource downloaded successfully");
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Failed to download BSPSource: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return false;
+                    }
                 }
                 
                 // Create temp output directory
@@ -469,7 +483,6 @@ namespace CS2KZMappingTools
                 string tempVmf = Path.Combine(tempOutputDir, $"{mapBaseName}.vmf");
                 
                 // Run BSPSource
-                string javaExe = Path.Combine(bspsrcDir, "bin", "java.exe");
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = javaExe,
@@ -637,11 +650,8 @@ namespace CS2KZMappingTools
                 return;
             }
             
-            // Ensure Python dependencies are installed before starting import
-            _statusLabel.Text = "Installing Python dependencies...";
-            _statusLabel.Visible = true;
-            await Task.Run(() => ResourceExtractor.EnsurePythonDependencies());
-            _statusLabel.Visible = false;
+            // Python dependencies will be installed by the import script if needed
+            // Skip pre-installation to avoid hanging
             
             _importInProgress = true;
             _vpkLockDetected = false;
