@@ -584,17 +584,24 @@ namespace CS2KZMappingTools
             {
                 string cd = Path.Combine(_csgoBasefolder!, "game", "csgo", "import_scripts");
                 
-                // Find the actual project directory (not the bin/Debug output)
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-                // Go up from bin/Debug/net8.0-windows/win-x64 to project root
-                while (!string.IsNullOrEmpty(baseDir) && !File.Exists(Path.Combine(baseDir, "CS2KZMappingTools.sln")))
+                // Get extracted resources path (where Python scripts are)
+                string basePath = ResourceExtractor.ExtractResources();
+                string jakkeScript = Path.Combine(basePath, "scripts", "porting", "import_map_community_jakke.py");
+                
+                // Fallback: check if running in development (look for .sln file)
+                if (!File.Exists(jakkeScript))
                 {
-                    var parent = Directory.GetParent(baseDir);
-                    if (parent == null) break;
-                    baseDir = parent.FullName;
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    // Go up from bin/Debug/net8.0-windows/win-x64 to project root
+                    while (!string.IsNullOrEmpty(baseDir) && !File.Exists(Path.Combine(baseDir, "CS2KZMappingTools.sln")))
+                    {
+                        var parent = Directory.GetParent(baseDir);
+                        if (parent == null) break;
+                        baseDir = parent.FullName;
+                    }
+                    jakkeScript = Path.Combine(baseDir, "scripts", "porting", "import_map_community_jakke.py");
                 }
                 
-                string jakkeScript = Path.Combine(baseDir, "scripts", "porting", "import_map_community_jakke.py");
                 string sdkContentDir = Path.Combine(_csgoBasefolder!, "sdk_content");
                 
                 string pythonExe = "python";
