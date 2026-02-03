@@ -149,9 +149,9 @@ def SaveEnv():
 	# Check if source1import.exe exists
 	source1import_path = os.path.join(newPath, "source1import.exe")
 	if os.path.exists(source1import_path):
-		print(f"[DEBUG] ✓ Found source1import.exe at: {source1import_path}")
+		print(f"[DEBUG] [OK] Found source1import.exe at: {source1import_path}")
 	else:
-		print(f"[DEBUG] ✗ WARNING: source1import.exe NOT FOUND at: {source1import_path}")
+		print(f"[DEBUG] [ERROR] WARNING: source1import.exe NOT FOUND at: {source1import_path}")
 		print(f"[DEBUG] Trying to list directory contents...")
 		try:
 			if os.path.exists(newPath):
