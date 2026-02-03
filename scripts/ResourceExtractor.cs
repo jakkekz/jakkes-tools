@@ -155,12 +155,39 @@ namespace CS2KZMappingTools
                 
                 // Check for embedded Python first (Complete Edition)
                 string embeddedPythonPath = Path.Combine(basePath, "python-embed", "python.exe");
+                
+                logCallback?.Invoke($"Looking for embedded Python at: {embeddedPythonPath}");
+                
+                // Check if any python-embed resources exist at all
+                var assembly = Assembly.GetExecutingAssembly();
+                var pythonResources = assembly.GetManifestResourceNames()
+                    .Where(r => r.Contains("python-embed"))
+                    .ToList();
+                
+                if (pythonResources.Any())
+                {
+                    logCallback?.Invoke($"Found {pythonResources.Count} python-embed resources in assembly");
+                }
+                else
+                {
+                    logCallback?.Invoke("No python-embed resources found - this is the Lite edition");
+                }
+                
                 if (File.Exists(embeddedPythonPath))
                 {
                     logCallback?.Invoke("✓ Using embedded Python (Complete Edition)");
                     logCallback?.Invoke($"Python location: {embeddedPythonPath}");
                     _dependenciesInstalled = true;
                     return "Success";
+                }
+                else if (pythonResources.Any())
+                {
+                    logCallback?.Invoke("[WARN] Python resources found but python.exe not extracted properly");
+                    logCallback?.Invoke("[WARN] This may be a build issue. Falling back to system Python...");
+                }
+                else
+                {
+                    logCallback?.Invoke("This is the Lite edition - checking for system Python...");
                 }
 
                 // Check if requirements.txt was extracted

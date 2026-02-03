@@ -156,5 +156,3 @@ jobs:
         files: |
           publish/complete/jakkes-tools-Complete.exe
           publish/lite/jakkes-tools-Lite.exe
-          jakkes-tools-Complete.zip
-          publish/lite
