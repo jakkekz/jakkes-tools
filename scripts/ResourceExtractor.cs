@@ -123,13 +123,15 @@ namespace CS2KZMappingTools
             return _extractPath;
         }
 
-        public static void EnsurePythonDependencies()
+        public static string EnsurePythonDependencies(Action<string>? logCallback = null)
         {
             if (_dependenciesInstalled)
-                return;
+                return "Dependencies already installed";
 
             try
             {
+                logCallback?.Invoke("Checking Python dependencies...");
+                
                 string basePath = ExtractResources();
                 string requirementsPath = Path.Combine(basePath, "requirements.txt");
 
@@ -144,30 +146,151 @@ Pillow
 numpy
 colorama
 ");
+                    logCallback?.Invoke("Created requirements.txt");
                 }
 
-                // Install dependencies silently in the background
-                var startInfo = new ProcessStartInfo
+                // Check if Python is available
+                var pythonCheck = new ProcessStartInfo
                 {
-                    FileName = "cmd.exe",
-                    Arguments = $"/c pip install -q -r \"{requirementsPath}\"",
+                    FileName = "python",
+                    Arguments = "--version",
                     UseShellExecute = false,
                     CreateNoWindow = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
 
-                var process = Process.Start(startInfo);
+                try
+                {
+                    using var checkProcess = Process.Start(pythonCheck);
+                    if (checkProcess != null)
+                    {
+                        checkProcess.WaitForExit(5000);
+                        if (checkProcess.ExitCode != 0)
+                        {
+                            string error = "Python not found. Please install Python 3.11+ from https://www.python.org/downloads/";
+                            logCallback?.Invoke($"[ERR] {error}");
+                            return error;
+                        }
+                        string version = checkProcess.StandardOutput.ReadToEnd().Trim();
+                        logCallback?.Invoke($"Found {version}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    string error = $"Python not found: {ex.Message}";
+                    logCallback?.Invoke($"[ERR] {error}");
+                    return error;
+                }
+
+                // Check if dependencies are already installed
+                logCallback?.Invoke("Checking installed packages...");
+                var checkInstalled = new ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = "-m pip list",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using var listProcess = Process.Start(checkInstalled);
+                if (listProcess != null)
+                {
+                    listProcess.WaitForExit(10000);
+                    string installedPackages = listProcess.StandardOutput.ReadToEnd().ToLower();
+                    
+                    if (installedPackages.Contains("imgui") && 
+                        installedPackages.Contains("pyopengl") && 
+                        installedPackages.Contains("vdf") && 
+                        installedPackages.Contains("pillow"))
+                    {
+                        logCallback?.Invoke("✓ All dependencies already installed");
+                        _dependenciesInstalled = true;
+                        return "Success";
+                    }
+                }
+
+                // Install dependencies with progress
+                logCallback?.Invoke("Installing Python dependencies (this may take 1-2 minutes)...");
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "python",
+                    Arguments = $"-m pip install -r \"{requirementsPath}\" --disable-pip-version-check",
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using var process = Process.Start(startInfo);
                 if (process != null)
                 {
-                    process.WaitForExit(30000); // Wait max 30 seconds
-                    _dependenciesInstalled = true;
+                    // Read output in real-time
+                    string output = "";
+                    string errors = "";
+                    
+                    process.OutputDataReceived += (s, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                        {
+                            output += e.Data + "\n";
+                            if (e.Data.Contains("Successfully installed") || e.Data.Contains("Requirement already satisfied"))
+                            {
+                                logCallback?.Invoke($"  {e.Data}");
+                            }
+                        }
+                    };
+                    
+                    process.ErrorDataReceived += (s, e) =>
+                    {
+                        if (!string.IsNullOrEmpty(e.Data))
+                        {
+                            errors += e.Data + "\n";
+                            logCallback?.Invoke($"  [pip] {e.Data}");
+                        }
+                    };
+                    
+                    process.BeginOutputReadLine();
+                    process.BeginErrorReadLine();
+                    
+                    // Wait up to 2 minutes for installation
+                    bool finished = process.WaitForExit(120000);
+                    
+                    if (!finished)
+                    {
+                        process.Kill();
+                        string error = "Installation timed out after 2 minutes";
+                        logCallback?.Invoke($"[ERR] {error}");
+                        return error;
+                    }
+                    
+                    if (process.ExitCode == 0)
+                    {
+                        logCallback?.Invoke("✓ Dependencies installed successfully");
+                        _dependenciesInstalled = true;
+                        return "Success";
+                    }
+                    else
+                    {
+                        string error = $"Installation failed with exit code {process.ExitCode}";
+                        logCallback?.Invoke($"[ERR] {error}");
+                        if (!string.IsNullOrEmpty(errors))
+                        {
+                            logCallback?.Invoke($"[ERR] {errors}");
+                        }
+                        return error;
+                    }
                 }
+                
+                return "Failed to start pip";
             }
-            catch
+            catch (Exception ex)
             {
-                // Silently fail - dependencies might already be installed
-                _dependenciesInstalled = true;
+                string error = $"Exception during dependency installation: {ex.Message}";
+                logCallback?.Invoke($"[ERR] {error}");
+                return error;
             }
         }
     }

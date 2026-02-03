@@ -68,9 +68,6 @@ namespace CS2KZMappingTools
             InitializeComponent();
             ApplyTheme();
             
-            // Ensure Python dependencies are installed
-            Task.Run(() => ResourceExtractor.EnsurePythonDependencies());
-            
             LoadConfig();
             AutoDetectCS2();
         }
@@ -719,6 +716,36 @@ namespace CS2KZMappingTools
             Height += 130;
             
             SaveConfig();
+            
+            // Ensure Python dependencies are installed first
+            await Task.Run(() =>
+            {
+                string result = ResourceExtractor.EnsurePythonDependencies(msg =>
+                {
+                    Invoke((MethodInvoker)delegate { LogMessage(msg); });
+                });
+                
+                if (result != "Success" && result != "Dependencies already installed")
+                {
+                    Invoke((MethodInvoker)delegate
+                    {
+                        _importInProgress = false;
+                        _goButton.Enabled = true;
+                        _statusLabel.Text = "Failed - Python setup error";
+                        _statusLabel.ForeColor = Color.Red;
+                        MessageBox.Show(
+                            $"Failed to install Python dependencies:\n\n{result}\n\n" +
+                            "Please make sure Python 3.11+ is installed and added to PATH.",
+                            "Python Setup Error",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Error);
+                    });
+                    return;
+                }
+            });
+            
+            if (!_importInProgress)
+                return;
             
             await RunImportAsync();
         }
