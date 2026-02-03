@@ -25,11 +25,24 @@ namespace CS2KZMappingTools
             var assembly = Assembly.GetExecutingAssembly();
             var resourceNames = assembly.GetManifestResourceNames();
             
+            // Log ALL resources for debugging
+            logCallback?.Invoke($"Total embedded resources: {resourceNames.Length}");
+            var resourcesByType = new Dictionary<string, int>();
+            foreach (var name in resourceNames)
+            {
+                var prefix = name.Split('.')[1]; // After "CS2KZMappingTools."
+                resourcesByType[prefix] = resourcesByType.GetValueOrDefault(prefix, 0) + 1;
+            }
+            foreach (var kvp in resourcesByType)
+            {
+                logCallback?.Invoke($"  {kvp.Key}: {kvp.Value} files");
+            }
+            
             // Log python-embed resources for debugging
-            var pythonEmbedResources = resourceNames.Where(r => r.Contains("python-embed")).ToList();
+            var pythonEmbedResources = resourceNames.Where(r => r.Contains("python_embed")).ToList(); // NOTE: hyphen becomes underscore!
             if (pythonEmbedResources.Count > 0)
             {
-                logCallback?.Invoke($"Found {pythonEmbedResources.Count} python-embed resources in assembly");
+                logCallback?.Invoke($"✓ Found {pythonEmbedResources.Count} python_embed resources");
                 // Log first few for debugging
                 foreach (var res in pythonEmbedResources.Take(3))
                 {
@@ -42,7 +55,8 @@ namespace CS2KZMappingTools
             }
             else
             {
-                logCallback?.Invoke("No python-embed resources found (Lite edition)");
+                logCallback?.Invoke("⚠ WARNING: No python_embed resources found (Lite edition)");
+                logCallback?.Invoke("⚠ This build does NOT contain embedded Python!");
             }
 
             int pythonFilesExtracted = 0;
@@ -70,12 +84,12 @@ namespace CS2KZMappingTools
                         var fileName = relativeName.Substring("icons.".Length);
                         filePath = Path.Combine(_extractPath, "icons", fileName);
                     }
-                    else if (relativeName.StartsWith("python-embed."))
+                    else if (relativeName.StartsWith("python_embed.")) // NOTE: hyphen becomes underscore in resource names!
                     {
                         // Handle embedded Python files
-                        // Resource name format: CS2KZMappingTools.python-embed.folder.file.ext
+                        // Resource name format: CS2KZMappingTools.python_embed.folder.file.ext
                         // We need to convert dots back to directory separators, but preserve file extension
-                        var fileName = relativeName.Substring("python-embed.".Length);
+                        var fileName = relativeName.Substring("python_embed.".Length);
                         
                         // Find the last dot (file extension)
                         int lastDotIndex = fileName.LastIndexOf('.');
@@ -158,8 +172,8 @@ namespace CS2KZMappingTools
                         using var fileStream = File.Create(filePath);
                         stream.CopyTo(fileStream);
                         
-                        // Count python-embed file extraction
-                        if (resourceName.Contains("python-embed"))
+                        // Count python_embed file extraction (underscore, not hyphen!)
+                        if (resourceName.Contains("python_embed"))
                         {
                             pythonFilesExtracted++;
                         }
@@ -197,10 +211,10 @@ namespace CS2KZMappingTools
                 
                 logCallback?.Invoke($"Looking for embedded Python at: {embeddedPythonPath}");
                 
-                // Check if any python-embed resources exist at all
+                // Check if any python_embed resources exist at all (underscore, not hyphen!)
                 var assembly = Assembly.GetExecutingAssembly();
                 var pythonResources = assembly.GetManifestResourceNames()
-                    .Where(r => r.Contains("python-embed"))
+                    .Where(r => r.Contains("python_embed"))
                     .ToList();
                 
                 if (File.Exists(embeddedPythonPath))
